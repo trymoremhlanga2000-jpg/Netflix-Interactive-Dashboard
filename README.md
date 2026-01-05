@@ -7,7 +7,8 @@ This **interactive web-based analytics dashboard** transforms Netflix's extensiv
 The dashboard empowers stakeholders with a comprehensive understanding of content distribution, release patterns, genre preferences, and global production trends, presenting complex data in an **intuitive and visually appealing format**.
 
 
-```
+
+
 ## ✨ Features
 
 ### 🎯 Core Analytics
@@ -23,7 +24,7 @@ The dashboard empowers stakeholders with a comprehensive understanding of conten
 - Global content contribution analysis  
 - Duration and format preferences  
 
-```
+
 
 
 ## 📊 Dashboard Sections
@@ -65,7 +66,8 @@ The dashboard empowers stakeholders with a comprehensive understanding of conten
 - **Key Attributes**: Title, type, release year, duration, genre, country, rating  
 - **Data Quality**: Pre-processed and cleaned to ensure accurate analysis  
 
-```
+
+
 
 ## 🛠️ Tech Stack
 
@@ -78,7 +80,7 @@ The dashboard empowers stakeholders with a comprehensive understanding of conten
 ### Development Tools
 - Jupyter Notebook | VS Code | Git  
 
-```
+
 ### Deployment
 - Streamlit Cloud | `requirements.txt` for dependency management  
 
@@ -97,4 +99,3 @@ Find everything on my streamlit link below
 [Trymore Deployment Application](https://prediction-of-movie-revenue-bytrymoremhlanga.streamlit.app/)
 
 TRYMORE MHLANGA CHIRAUSO
-```
