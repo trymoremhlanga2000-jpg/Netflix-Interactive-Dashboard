@@ -2,12 +2,12 @@
 
 ## 🚀 Overview
 
-This **interactive web-based analytics dashboard** transforms Netflix's extensive content library into actionable insights. Built with **Python** and **Streamlit**, the project demonstrates an end-to-end analytics workflow—from data cleaning and exploration to interactive visualizations that uncover streaming trends.  
+This **interactive web-based analytics dashboard** transforms Netflix's extensive content library into actionable insights. Built with **Python** and **Streamlit**, the project demonstrates an end-to-end analytics workflow from data cleaning and exploration to interactive visualizations that uncover streaming trends.  
 
 The dashboard empowers stakeholders with a comprehensive understanding of content distribution, release patterns, genre preferences, and global production trends, presenting complex data in an **intuitive and visually appealing format**.
 
 
-
+```
 ## ✨ Features
 
 ### 🎯 Core Analytics
@@ -23,6 +23,7 @@ The dashboard empowers stakeholders with a comprehensive understanding of conten
 - Global content contribution analysis  
 - Duration and format preferences  
 
+```
 
 
 ## 📊 Dashboard Sections
@@ -64,7 +65,7 @@ The dashboard empowers stakeholders with a comprehensive understanding of conten
 - **Key Attributes**: Title, type, release year, duration, genre, country, rating  
 - **Data Quality**: Pre-processed and cleaned to ensure accurate analysis  
 
-
+```
 
 ## 🛠️ Tech Stack
 
@@ -77,18 +78,23 @@ The dashboard empowers stakeholders with a comprehensive understanding of conten
 ### Development Tools
 - Jupyter Notebook | VS Code | Git  
 
+```
 ### Deployment
 - Streamlit Cloud | `requirements.txt` for dependency management  
 
 **Required Dependencies**
 streamlit>=1.28.0
+
 pandas>=1.5.0
+
 plotly>=5.15.0
+
 numpy>=1.24.0
 
-**Deployment**
+
 
 Find everything on my streamlit link below
-https://prediction-of-movie-revenue-bytrymoremhlanga.streamlit.app/
+[Trymore Deployment Application](https://prediction-of-movie-revenue-bytrymoremhlanga.streamlit.app/)
 
 TRYMORE MHLANGA CHIRAUSO
+```
