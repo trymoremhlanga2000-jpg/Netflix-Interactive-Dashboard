@@ -58,7 +58,7 @@ section = st.sidebar.radio(
 )
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("👩‍💻 *By Sanaj Jadhav*")
+st.sidebar.markdown("👩‍💻 *By Trymore Mhlanga*")
 
 # -------------------------
 # Section: Home
