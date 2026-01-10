@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import numpy as np
 
 # =============================
 # PAGE CONFIGURATION
@@ -271,29 +272,64 @@ def apply_premium_theme():
 apply_premium_theme()
 
 # =============================
-# LOAD DATA
+# LOAD AND PREPROCESS DATA
 # =============================
 @st.cache_data
-def load_data():
+def load_and_preprocess_data():
     try:
         df = pd.read_csv('data/netflix_cleaned.csv')
         
-        # Preprocess duration field for Movies and TV Shows
-        movie_mask = df['type'] == 'Movie'
-        tv_mask = df['type'] == 'TV Show'
+        # Create copy to avoid modification warnings
+        df = df.copy()
         
-        # Extract minutes for movies
-        df.loc[movie_mask, 'duration_int'] = df.loc[movie_mask, 'duration'].str.extract('(\d+)').astype(float)
+        # Convert duration to numeric values
+        def extract_duration(row):
+            if pd.isna(row['duration']):
+                return np.nan
+            
+            if row['type'] == 'Movie':
+                # Extract minutes from "X min" format
+                try:
+                    match = str(row['duration']).split()[0]
+                    return float(match) if match.isdigit() else np.nan
+                except:
+                    return np.nan
+            elif row['type'] == 'TV Show':
+                # Extract seasons from "X Season(s)" format
+                try:
+                    match = str(row['duration']).split()[0]
+                    return float(match) if match.isdigit() else np.nan
+                except:
+                    return np.nan
+            return np.nan
         
-        # Extract seasons for TV shows
-        df.loc[tv_mask, 'duration_int'] = df.loc[tv_mask, 'duration'].str.extract('(\d+)').astype(float)
+        # Apply duration extraction
+        df['duration_numeric'] = df.apply(extract_duration, axis=1)
+        
+        # Ensure release_year is integer
+        if 'release_year' in df.columns:
+            df['release_year'] = pd.to_numeric(df['release_year'], errors='coerce').fillna(0).astype(int)
+        
+        # Parse date_added for month analysis
+        if 'date_added' in df.columns:
+            df['date_added_parsed'] = pd.to_datetime(df['date_added'], errors='coerce')
+            df['month_added'] = df['date_added_parsed'].dt.month
+        
+        # Extract primary genre
+        if 'listed_in' in df.columns:
+            df['primary_genre'] = df['listed_in'].str.split(',').str[0].str.strip()
         
         return df
+    
     except FileNotFoundError:
         st.error("❌ Data file not found. Please ensure 'data/netflix_cleaned.csv' exists.")
         return pd.DataFrame()
+    except Exception as e:
+        st.error(f"❌ Error loading data: {str(e)}")
+        return pd.DataFrame()
 
-df = load_data()
+# Load data
+df = load_and_preprocess_data()
 
 # =============================
 # SIDEBAR NAVIGATION
@@ -311,6 +347,16 @@ page = st.sidebar.radio(
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("<div style='text-align: center; color: rgba(245, 199, 122, 0.7);'>👨‍💻 By Trymore Mhlanga</div>", unsafe_allow_html=True)
+
+# =============================
+# COLOR SCHEME DEFINITIONS
+# =============================
+# Different colors for Movies vs TV Shows
+MOVIE_COLOR = '#F5C77A'  # Gold - for Movies
+TV_COLOR = '#8B5A2B'     # Brown - for TV Shows (distinct from gold)
+GENRE_COLOR_SCALE = 'YlOrBr'  # Valid Plotly color scale
+MAP_COLOR_SCALE = 'Oranges'   # Valid Plotly color scale
+HISTOGRAM_COLORS = ['#F5C77A', '#D4A94E']  # Gold variations
 
 # =============================
 # DASHBOARD PAGE
@@ -337,7 +383,7 @@ if page == "🏠 Dashboard":
             st.metric("Total Titles", "0")
     
     with col3:
-        if not df.empty:
+        if not df.empty and 'release_year' in df.columns:
             latest_year = df['release_year'].max()
             st.metric("Latest Data", f"{int(latest_year)}")
         else:
@@ -350,20 +396,26 @@ if page == "🏠 Dashboard":
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            movies_count = len(df[df['type'] == 'Movie'])
+            movies_count = len(df[df['type'] == 'Movie']) if 'type' in df.columns else 0
             st.metric("Movies", f"{movies_count:,}")
         
         with col2:
-            tv_count = len(df[df['type'] == 'TV Show'])
+            tv_count = len(df[df['type'] == 'TV Show']) if 'type' in df.columns else 0
             st.metric("TV Shows", f"{tv_count:,}")
         
         with col3:
-            countries = df['country'].dropna().str.split(', ').explode().nunique()
-            st.metric("Countries", f"{countries}")
+            if 'country' in df.columns:
+                countries = df['country'].dropna().str.split(', ').explode().nunique()
+                st.metric("Countries", f"{countries}")
+            else:
+                st.metric("Countries", "0")
         
         with col4:
-            genres = df['listed_in'].dropna().str.split(', ').explode().nunique()
-            st.metric("Genres", f"{genres}")
+            if 'listed_in' in df.columns:
+                genres = df['listed_in'].dropna().str.split(', ').explode().nunique()
+                st.metric("Genres", f"{genres}")
+            else:
+                st.metric("Genres", "0")
     
     # Features Grid
     st.markdown("<div class='card'>", unsafe_allow_html=True)
@@ -457,14 +509,19 @@ if page == "🏠 Dashboard":
         st.markdown("<div class='stats-card'>", unsafe_allow_html=True)
         st.markdown("##### 📊 Dataset Stats")
         if not df.empty:
-            st.markdown(f"""
-            <div style='color: #f5c77a;'>
-            • {len(df):,}+ titles analyzed  
-            • {df['release_year'].max() - df['release_year'].min()}+ years  
-            • {countries}+ countries  
-            • {genres}+ genres
-            </div>
-            """, unsafe_allow_html=True)
+            if 'country' in df.columns and 'listed_in' in df.columns:
+                countries = df['country'].dropna().str.split(', ').explode().nunique()
+                genres = df['listed_in'].dropna().str.split(', ').explode().nunique()
+                years_range = df['release_year'].max() - df['release_year'].min() if 'release_year' in df.columns else 0
+                
+                st.markdown(f"""
+                <div style='color: #f5c77a;'>
+                • {len(df):,}+ titles analyzed  
+                • {years_range}+ years  
+                • {countries}+ countries  
+                • {genres}+ genres
+                </div>
+                """, unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
     
     st.markdown("</div>", unsafe_allow_html=True)
@@ -476,7 +533,7 @@ elif page == "📊 Content Overview":
     st.markdown("<div class='card'>", unsafe_allow_html=True)
     st.markdown("<h1>📊 CONTENT OVERVIEW ANALYTICS</h1>", unsafe_allow_html=True)
     
-    if not df.empty:
+    if not df.empty and 'type' in df.columns and 'release_year' in df.columns:
         # Content Type Analysis
         st.markdown("<h3>📅 Content Type Distribution</h3>", unsafe_allow_html=True)
         
@@ -484,8 +541,8 @@ elif page == "📊 Content Overview":
         
         with col2:
             st.markdown("<div class='form-section'>", unsafe_allow_html=True)
-            years_sorted = sorted(df['release_year'].dropna().unique(), reverse=True)
-            selected_year = st.selectbox("Select Release Year", years_sorted)
+            years_available = sorted(df['release_year'].dropna().unique(), reverse=True)
+            selected_year = st.selectbox("Select Release Year", years_available)
             st.markdown("</div>", unsafe_allow_html=True)
         
         with col1:
@@ -494,14 +551,16 @@ elif page == "📊 Content Overview":
             if not filtered_df.empty:
                 type_counts = filtered_df['type'].value_counts()
                 
-                # Custom color sequence matching gold theme
-                custom_colors = ['#f5c77a', '#ffd98e']
+                # Custom color sequence with distinct colors
+                color_map = {'Movie': MOVIE_COLOR, 'TV Show': TV_COLOR}
+                colors = [color_map.get(typ, '#808080') for typ in type_counts.index]
                 
                 fig = px.pie(
-                    names=type_counts.index,
                     values=type_counts.values,
+                    names=type_counts.index,
                     hole=0.5,
-                    color_discrete_sequence=custom_colors
+                    color=type_counts.index,
+                    color_discrete_map=color_map
                 )
                 
                 fig.update_traces(
@@ -531,31 +590,35 @@ elif page == "📊 Content Overview":
         st.markdown("<h3>📈 Content Release Trends</h3>", unsafe_allow_html=True)
         
         # Monthly Trend
-        st.markdown("<h4>📅 Monthly Release Pattern</h4>", unsafe_allow_html=True)
-        df['month_added'] = pd.to_datetime(df['date_added'], errors='coerce').dt.month
-        month_grouped = df.groupby(['month_added', 'type']).size().reset_index(name='count')
-        month_grouped['month_added'] = month_grouped['month_added'].fillna(0).astype(int)
-        
-        month_map = {
-            1: 'Jan', 2: 'Feb', 3: 'Mar', 4: 'Apr', 5: 'May', 6: 'Jun',
-            7: 'Jul', 8: 'Aug', 9: 'Sep', 10: 'Oct', 11: 'Nov', 12: 'Dec'
-        }
-        month_grouped['month'] = month_grouped['month_added'].map(month_map)
-        month_grouped = month_grouped.sort_values(by='month_added')
-        
-        fig_month = px.bar(
-            month_grouped, x='month', y='count', color='type',
-            barmode='group',
-            color_discrete_sequence=custom_colors
-        )
-        fig_month.update_layout(
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            font=dict(color='#f5c77a'),
-            xaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)'),
-            yaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)')
-        )
-        st.plotly_chart(fig_month, use_container_width=True)
+        if 'month_added' in df.columns:
+            st.markdown("<h4>📅 Monthly Release Pattern</h4>", unsafe_allow_html=True)
+            month_grouped = df.groupby(['month_added', 'type']).size().reset_index(name='count')
+            month_grouped = month_grouped[month_grouped['month_added'] > 0]
+            
+            month_map = {
+                1: 'Jan', 2: 'Feb', 3: 'Mar', 4: 'Apr', 5: 'May', 6: 'Jun',
+                7: 'Jul', 8: 'Aug', 9: 'Sep', 10: 'Oct', 11: 'Nov', 12: 'Dec'
+            }
+            month_grouped['month'] = month_grouped['month_added'].map(month_map)
+            
+            fig_month = px.bar(
+                month_grouped, 
+                x='month', 
+                y='count', 
+                color='type',
+                barmode='group',
+                color_discrete_map={'Movie': MOVIE_COLOR, 'TV Show': TV_COLOR},
+                category_orders={'month': list(month_map.values())}
+            )
+            fig_month.update_layout(
+                title="Monthly Releases by Type",
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(color='#f5c77a'),
+                xaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)'),
+                yaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)')
+            )
+            st.plotly_chart(fig_month, use_container_width=True)
         
         # Yearly Trend
         col1, col2 = st.columns(2)
@@ -566,11 +629,15 @@ elif page == "📊 Content Overview":
             year_grouped = year_grouped[year_grouped['release_year'] >= 2000]
             
             fig_year = px.line(
-                year_grouped, x='release_year', y='count', color='type',
+                year_grouped, 
+                x='release_year', 
+                y='count', 
+                color='type',
                 markers=True,
-                color_discrete_sequence=custom_colors
+                color_discrete_map={'Movie': MOVIE_COLOR, 'TV Show': TV_COLOR}
             )
             fig_year.update_layout(
+                title="Yearly Releases by Type",
                 paper_bgcolor='rgba(0,0,0,0)',
                 plot_bgcolor='rgba(0,0,0,0)',
                 font=dict(color='#f5c77a'),
@@ -585,11 +652,15 @@ elif page == "📊 Content Overview":
             decade_grouped = df.groupby(['decade', 'type']).size().reset_index(name='count')
             
             fig_decade = px.bar(
-                decade_grouped, x='decade', y='count', color='type',
+                decade_grouped, 
+                x='decade', 
+                y='count', 
+                color='type',
                 barmode='group',
-                color_discrete_sequence=custom_colors
+                color_discrete_map={'Movie': MOVIE_COLOR, 'TV Show': TV_COLOR}
             )
             fig_decade.update_layout(
+                title="Content by Decade and Type",
                 paper_bgcolor='rgba(0,0,0,0)',
                 plot_bgcolor='rgba(0,0,0,0)',
                 font=dict(color='#f5c77a'),
@@ -599,7 +670,7 @@ elif page == "📊 Content Overview":
             st.plotly_chart(fig_decade, use_container_width=True)
     
     else:
-        st.error("❌ No data available. Please load the dataset.")
+        st.error("❌ Required columns not available. Please check data structure.")
     
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -610,7 +681,7 @@ elif page == "🎭 Genre Intelligence":
     st.markdown("<div class='card'>", unsafe_allow_html=True)
     st.markdown("<h1>🎭 GENRE INTELLIGENCE DASHBOARD</h1>", unsafe_allow_html=True)
     
-    if not df.empty:
+    if not df.empty and 'type' in df.columns and 'primary_genre' in df.columns:
         # Sidebar filters
         st.sidebar.markdown("<h3 style='color: #f5c77a;'>⚙️ Filter Settings</h3>", unsafe_allow_html=True)
         
@@ -620,24 +691,23 @@ elif page == "🎭 Genre Intelligence":
                 ["All", "Movie", "TV Show"]
             )
         
-        # Preprocess Genre Column
-        df['genre'] = df['listed_in'].str.split(',').str[0].str.strip()
-        
+        # Filter data
         if content_type != "All":
             genre_data = df[df['type'] == content_type]
         else:
             genre_data = df
         
-        genre_counts = genre_data['genre'].value_counts().head(15).reset_index()
+        genre_counts = genre_data['primary_genre'].value_counts().head(15).reset_index()
         genre_counts.columns = ['Genre', 'Count']
         
-        # Horizontal Bar Chart
+        # Horizontal Bar Chart - Fixed color scale
         fig_genre = px.bar(
             genre_counts.sort_values('Count'),
-            x='Count', y='Genre',
+            x='Count', 
+            y='Genre',
             orientation='h',
             color='Count',
-            color_continuous_scale='gold',
+            color_continuous_scale=GENRE_COLOR_SCALE,  # Valid Plotly color scale
             title=f"Top 15 Genres - {content_type}"
         )
         
@@ -658,17 +728,23 @@ elif page == "🎭 Genre Intelligence":
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            total_genres = genre_data['genre'].nunique()
+            total_genres = genre_data['primary_genre'].nunique()
             st.metric("Unique Genres", total_genres)
         
         with col2:
-            top_genre = genre_counts.iloc[0]['Genre'] if len(genre_counts) > 0 else "N/A"
-            top_count = genre_counts.iloc[0]['Count'] if len(genre_counts) > 0 else 0
-            st.metric("Top Genre", top_genre, delta=f"{top_count} titles")
+            if len(genre_counts) > 0:
+                top_genre = genre_counts.iloc[0]['Genre']
+                top_count = genre_counts.iloc[0]['Count']
+                st.metric("Top Genre", top_genre, delta=f"{top_count} titles")
+            else:
+                st.metric("Top Genre", "N/A")
         
         with col3:
-            avg_per_genre = genre_counts['Count'].mean() if len(genre_counts) > 0 else 0
-            st.metric("Avg per Genre", f"{avg_per_genre:.0f}")
+            if len(genre_counts) > 0:
+                avg_per_genre = genre_counts['Count'].mean()
+                st.metric("Avg per Genre", f"{avg_per_genre:.0f}")
+            else:
+                st.metric("Avg per Genre", "0")
         
         st.markdown("</div>", unsafe_allow_html=True)
         
@@ -676,8 +752,10 @@ elif page == "🎭 Genre Intelligence":
         if content_type == "All":
             st.markdown("<h4>🎬 Genre Distribution by Content Type</h4>", unsafe_allow_html=True)
             
-            genre_by_type = df.groupby(['genre', 'type']).size().unstack(fill_value=0).head(10)
-            genre_by_type = genre_by_type.sort_values('Movie', ascending=False)
+            genre_by_type = df.groupby(['primary_genre', 'type']).size().unstack(fill_value=0)
+            # Get top 10 genres overall
+            top_genres = df['primary_genre'].value_counts().head(10).index
+            genre_by_type = genre_by_type.loc[top_genres]
             
             fig_type = go.Figure()
             
@@ -686,7 +764,7 @@ elif page == "🎭 Genre Intelligence":
                     name='Movies',
                     x=genre_by_type.index,
                     y=genre_by_type['Movie'],
-                    marker_color='#f5c77a'
+                    marker_color=MOVIE_COLOR
                 ))
             
             if 'TV Show' in genre_by_type.columns:
@@ -694,22 +772,24 @@ elif page == "🎭 Genre Intelligence":
                     name='TV Shows',
                     x=genre_by_type.index,
                     y=genre_by_type['TV Show'],
-                    marker_color='#d4a94e'
+                    marker_color=TV_COLOR
                 ))
             
             fig_type.update_layout(
                 barmode='group',
+                title="Top 10 Genres by Content Type",
                 paper_bgcolor='rgba(0,0,0,0)',
                 plot_bgcolor='rgba(0,0,0,0)',
                 font=dict(color='#f5c77a'),
                 xaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)'),
-                yaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)')
+                yaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)'),
+                legend=dict(font=dict(color='#f5c77a'))
             )
             
             st.plotly_chart(fig_type, use_container_width=True)
     
     else:
-        st.error("❌ No data available. Please load the dataset.")
+        st.error("❌ Required columns not available. Please check data structure.")
     
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -720,7 +800,7 @@ elif page == "⏱️ Retention Analysis":
     st.markdown("<div class='card'>", unsafe_allow_html=True)
     st.markdown("<h1>⏱️ CONTENT RETENTION ANALYTICS</h1>", unsafe_allow_html=True)
     
-    if not df.empty:
+    if not df.empty and 'type' in df.columns and 'duration_numeric' in df.columns and 'primary_genre' in df.columns:
         st.markdown("<h3>🕒 Engagement Metrics by Genre</h3>", unsafe_allow_html=True)
         st.markdown("Analyze average durations to understand potential user engagement and retention patterns.")
         
@@ -732,31 +812,47 @@ elif page == "⏱️ Retention Analysis":
             st.markdown("##### 🎥 Average Movie Duration")
             
             movie_df = df[df['type'] == 'Movie'].copy()
-            movie_df['genre'] = movie_df['listed_in'].str.split(',').str[0].str.strip()
-            movie_df['duration'] = movie_df['duration'].str.extract('(\d+)').astype(float)
+            # Remove NaN values
+            movie_df = movie_df.dropna(subset=['duration_numeric', 'primary_genre'])
             
-            avg_movie_duration = movie_df.groupby('genre')['duration'].mean().sort_values(ascending=False).head(10)
+            if not movie_df.empty:
+                avg_movie_duration = movie_df.groupby('primary_genre')['duration_numeric'].mean()
+                avg_movie_duration = avg_movie_duration.sort_values(ascending=False).head(10)
+                
+                # Convert to DataFrame for plotting
+                avg_movie_df = avg_movie_duration.reset_index()
+                avg_movie_df.columns = ['Genre', 'Average Duration']
+                
+                fig_duration = px.bar(
+                    avg_movie_df,
+                    x='Average Duration',
+                    y='Genre',
+                    orientation='h',
+                    color='Average Duration',
+                    color_continuous_scale=GENRE_COLOR_SCALE,
+                    labels={'Average Duration': 'Average Duration (minutes)'},
+                    title="Top 10 Genres by Movie Length"
+                )
+                
+                fig_duration.update_layout(
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    font=dict(color='#f5c77a'),
+                    xaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)'),
+                    yaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)')
+                )
+                
+                st.plotly_chart(fig_duration, use_container_width=True)
+                
+                # Display stats
+                if len(avg_movie_df) > 0:
+                    avg_val = avg_movie_df['Average Duration'].mean()
+                    median_val = avg_movie_df['Average Duration'].median()
+                    st.metric("Average", f"{avg_val:.1f} min")
+                    st.metric("Median", f"{median_val:.1f} min")
+            else:
+                st.warning("No movie data available for analysis.")
             
-            fig_duration = px.bar(
-                avg_movie_duration,
-                x=avg_movie_duration.values,
-                y=avg_movie_duration.index,
-                orientation='h',
-                color=avg_movie_duration.values,
-                color_continuous_scale='gold',
-                labels={'x': 'Average Duration (minutes)', 'y': 'Genre'},
-                title="Top 10 Genres by Movie Length"
-            )
-            
-            fig_duration.update_layout(
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0)',
-                font=dict(color='#f5c77a'),
-                xaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)'),
-                yaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)')
-            )
-            
-            st.plotly_chart(fig_duration, use_container_width=True)
             st.markdown("</div>", unsafe_allow_html=True)
         
         # TV Show Seasons by Genre
@@ -765,31 +861,47 @@ elif page == "⏱️ Retention Analysis":
             st.markdown("##### 📺 Average TV Show Seasons")
             
             show_df = df[df['type'] == 'TV Show'].copy()
-            show_df['genre'] = show_df['listed_in'].str.split(',').str[0].str.strip()
-            show_df['seasons'] = show_df['duration'].str.extract('(\d+)').astype(float)
+            # Remove NaN values
+            show_df = show_df.dropna(subset=['duration_numeric', 'primary_genre'])
             
-            avg_seasons = show_df.groupby('genre')['seasons'].mean().sort_values(ascending=False).head(10)
+            if not show_df.empty:
+                avg_seasons = show_df.groupby('primary_genre')['duration_numeric'].mean()
+                avg_seasons = avg_seasons.sort_values(ascending=False).head(10)
+                
+                # Convert to DataFrame for plotting
+                avg_seasons_df = avg_seasons.reset_index()
+                avg_seasons_df.columns = ['Genre', 'Average Seasons']
+                
+                fig_seasons = px.bar(
+                    avg_seasons_df,
+                    x='Average Seasons',
+                    y='Genre',
+                    orientation='h',
+                    color='Average Seasons',
+                    color_continuous_scale=GENRE_COLOR_SCALE,
+                    labels={'Average Seasons': 'Average Seasons'},
+                    title="Top 10 Genres by Series Longevity"
+                )
+                
+                fig_seasons.update_layout(
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    font=dict(color='#f5c77a'),
+                    xaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)'),
+                    yaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)')
+                )
+                
+                st.plotly_chart(fig_seasons, use_container_width=True)
+                
+                # Display stats
+                if len(avg_seasons_df) > 0:
+                    avg_val = avg_seasons_df['Average Seasons'].mean()
+                    median_val = avg_seasons_df['Average Seasons'].median()
+                    st.metric("Average", f"{avg_val:.1f} seasons")
+                    st.metric("Median", f"{median_val:.1f} seasons")
+            else:
+                st.warning("No TV show data available for analysis.")
             
-            fig_seasons = px.bar(
-                avg_seasons,
-                x=avg_seasons.values,
-                y=avg_seasons.index,
-                orientation='h',
-                color=avg_seasons.values,
-                color_continuous_scale='gold',
-                labels={'x': 'Average Seasons', 'y': 'Genre'},
-                title="Top 10 Genres by Series Longevity"
-            )
-            
-            fig_seasons.update_layout(
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0)',
-                font=dict(color='#f5c77a'),
-                xaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)'),
-                yaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)')
-            )
-            
-            st.plotly_chart(fig_seasons, use_container_width=True)
             st.markdown("</div>", unsafe_allow_html=True)
         
         # Insights
@@ -819,7 +931,7 @@ elif page == "⏱️ Retention Analysis":
         st.markdown("</div>", unsafe_allow_html=True)
     
     else:
-        st.error("❌ No data available. Please load the dataset.")
+        st.error("❌ Required data not available. Please check data preprocessing.")
     
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -830,7 +942,7 @@ elif page == "⏳ Duration Distribution":
     st.markdown("<div class='card'>", unsafe_allow_html=True)
     st.markdown("<h1>⏳ CONTENT DURATION ANALYSIS</h1>", unsafe_allow_html=True)
     
-    if not df.empty and 'duration_int' in df.columns:
+    if not df.empty and 'type' in df.columns and 'duration_numeric' in df.columns:
         st.markdown("<h3>📊 Content Length Distribution</h3>", unsafe_allow_html=True)
         
         col1, col2 = st.columns(2)
@@ -839,34 +951,45 @@ elif page == "⏳ Duration Distribution":
             st.markdown("<div class='insight-card'>", unsafe_allow_html=True)
             st.markdown("##### 🎥 Movie Runtime Distribution")
             
-            movie_df = df[df['type'] == 'Movie']
+            movie_df = df[df['type'] == 'Movie'].copy()
+            movie_df = movie_df.dropna(subset=['duration_numeric'])
             
-            fig_movie = px.histogram(
-                movie_df,
-                x="duration_int",
-                nbins=30,
-                color_discrete_sequence=['#f5c77a']
-            )
-            
-            fig_movie.update_layout(
-                title="Movie Duration Distribution",
-                xaxis_title="Duration (minutes)",
-                yaxis_title="Count",
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0)',
-                font=dict(color='#f5c77a'),
-                xaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)'),
-                yaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)')
-            )
-            
-            st.plotly_chart(fig_movie, use_container_width=True)
-            
-            # Movie stats
-            avg_movie = movie_df['duration_int'].mean()
-            median_movie = movie_df['duration_int'].median()
-            
-            st.metric("Average Duration", f"{avg_movie:.1f} min")
-            st.metric("Median Duration", f"{median_movie:.1f} min")
+            if not movie_df.empty:
+                fig_movie = px.histogram(
+                    movie_df,
+                    x="duration_numeric",
+                    nbins=30,
+                    color_discrete_sequence=[MOVIE_COLOR]
+                )
+                
+                fig_movie.update_layout(
+                    title="Movie Duration Distribution",
+                    xaxis_title="Duration (minutes)",
+                    yaxis_title="Count",
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    font=dict(color='#f5c77a'),
+                    xaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)'),
+                    yaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)')
+                )
+                
+                st.plotly_chart(fig_movie, use_container_width=True)
+                
+                # Movie stats - handle NaN values
+                avg_movie = movie_df['duration_numeric'].mean()
+                median_movie = movie_df['duration_numeric'].median()
+                
+                if not pd.isna(avg_movie):
+                    st.metric("Average Duration", f"{avg_movie:.1f} min")
+                else:
+                    st.metric("Average Duration", "N/A")
+                
+                if not pd.isna(median_movie):
+                    st.metric("Median Duration", f"{median_movie:.1f} min")
+                else:
+                    st.metric("Median Duration", "N/A")
+            else:
+                st.warning("No movie duration data available.")
             
             st.markdown("</div>", unsafe_allow_html=True)
         
@@ -874,64 +997,80 @@ elif page == "⏳ Duration Distribution":
             st.markdown("<div class='insight-card'>", unsafe_allow_html=True)
             st.markdown("##### 📺 TV Show Seasons Distribution")
             
-            tv_df = df[df['type'] == 'TV Show']
+            tv_df = df[df['type'] == 'TV Show'].copy()
+            tv_df = tv_df.dropna(subset=['duration_numeric'])
             
-            fig_tv = px.histogram(
-                tv_df,
-                x="duration_int",
-                nbins=15,
-                color_discrete_sequence=['#ffd98e']
-            )
-            
-            fig_tv.update_layout(
-                title="TV Show Seasons Distribution",
-                xaxis_title="Number of Seasons",
-                yaxis_title="Count",
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0)',
-                font=dict(color='#f5c77a'),
-                xaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)'),
-                yaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)')
-            )
-            
-            st.plotly_chart(fig_tv, use_container_width=True)
-            
-            # TV stats
-            avg_tv = tv_df['duration_int'].mean()
-            median_tv = tv_df['duration_int'].median()
-            
-            st.metric("Average Seasons", f"{avg_tv:.1f}")
-            st.metric("Median Seasons", f"{median_tv:.1f}")
+            if not tv_df.empty:
+                fig_tv = px.histogram(
+                    tv_df,
+                    x="duration_numeric",
+                    nbins=15,
+                    color_discrete_sequence=[TV_COLOR]
+                )
+                
+                fig_tv.update_layout(
+                    title="TV Show Seasons Distribution",
+                    xaxis_title="Number of Seasons",
+                    yaxis_title="Count",
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    font=dict(color='#f5c77a'),
+                    xaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)'),
+                    yaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)')
+                )
+                
+                st.plotly_chart(fig_tv, use_container_width=True)
+                
+                # TV stats - handle NaN values
+                avg_tv = tv_df['duration_numeric'].mean()
+                median_tv = tv_df['duration_numeric'].median()
+                
+                if not pd.isna(avg_tv):
+                    st.metric("Average Seasons", f"{avg_tv:.1f}")
+                else:
+                    st.metric("Average Seasons", "N/A")
+                
+                if not pd.isna(median_tv):
+                    st.metric("Median Seasons", f"{median_tv:.1f}")
+                else:
+                    st.metric("Median Seasons", "N/A")
+            else:
+                st.warning("No TV show duration data available.")
             
             st.markdown("</div>", unsafe_allow_html=True)
         
         # Comparative Analysis
-        st.markdown("<div class='form-section'>", unsafe_allow_html=True)
-        st.markdown("<h4>📈 Duration Statistics Summary</h4>", unsafe_allow_html=True)
-        
-        if not movie_df.empty and not tv_df.empty:
+        if not df.empty:
+            st.markdown("<div class='form-section'>", unsafe_allow_html=True)
+            st.markdown("<h4>📈 Duration Statistics Summary</h4>", unsafe_allow_html=True)
+            
+            movie_stats = df[df['type'] == 'Movie']['duration_numeric'].describe()
+            tv_stats = df[df['type'] == 'TV Show']['duration_numeric'].describe()
+            
             stats_data = {
-                'Metric': ['Mean', 'Median', 'Minimum', 'Maximum', 'Standard Deviation'],
-                'Movies (min)': [
-                    f"{movie_df['duration_int'].mean():.1f}",
-                    f"{movie_df['duration_int'].median():.1f}",
-                    f"{movie_df['duration_int'].min():.0f}",
-                    f"{movie_df['duration_int'].max():.0f}",
-                    f"{movie_df['duration_int'].std():.1f}"
+                'Metric': ['Mean', 'Median', 'Minimum', 'Maximum', 'Standard Deviation', 'Count'],
+                'Movies': [
+                    f"{movie_stats['mean']:.1f}" if not pd.isna(movie_stats['mean']) else "N/A",
+                    f"{movie_stats['50%']:.1f}" if '50%' in movie_stats.index else "N/A",
+                    f"{movie_stats['min']:.0f}" if not pd.isna(movie_stats['min']) else "N/A",
+                    f"{movie_stats['max']:.0f}" if not pd.isna(movie_stats['max']) else "N/A",
+                    f"{movie_stats['std']:.1f}" if not pd.isna(movie_stats['std']) else "N/A",
+                    f"{int(movie_stats['count'])}" if not pd.isna(movie_stats['count']) else "0"
                 ],
-                'TV Shows (seasons)': [
-                    f"{tv_df['duration_int'].mean():.1f}",
-                    f"{tv_df['duration_int'].median():.1f}",
-                    f"{tv_df['duration_int'].min():.0f}",
-                    f"{tv_df['duration_int'].max():.0f}",
-                    f"{tv_df['duration_int'].std():.1f}"
+                'TV Shows': [
+                    f"{tv_stats['mean']:.1f}" if not pd.isna(tv_stats['mean']) else "N/A",
+                    f"{tv_stats['50%']:.1f}" if '50%' in tv_stats.index else "N/A",
+                    f"{tv_stats['min']:.0f}" if not pd.isna(tv_stats['min']) else "N/A",
+                    f"{tv_stats['max']:.0f}" if not pd.isna(tv_stats['max']) else "N/A",
+                    f"{tv_stats['std']:.1f}" if not pd.isna(tv_stats['std']) else "N/A",
+                    f"{int(tv_stats['count'])}" if not pd.isna(tv_stats['count']) else "0"
                 ]
             }
             
             stats_df = pd.DataFrame(stats_data)
             st.dataframe(stats_df, use_container_width=True, hide_index=True)
-        
-        st.markdown("</div>", unsafe_allow_html=True)
+            
+            st.markdown("</div>", unsafe_allow_html=True)
     
     else:
         st.error("❌ Duration data not available. Please check data preprocessing.")
@@ -945,7 +1084,7 @@ elif page == "🌍 Global Trends":
     st.markdown("<div class='card'>", unsafe_allow_html=True)
     st.markdown("<h1>🌍 GLOBAL CONTENT TRENDS</h1>", unsafe_allow_html=True)
     
-    if not df.empty:
+    if not df.empty and 'country' in df.columns and 'release_year' in df.columns and 'type' in df.columns:
         # Filters
         st.markdown("<div class='form-section'>", unsafe_allow_html=True)
         st.markdown("<h4>⚙️ Filter Settings</h4>", unsafe_allow_html=True)
@@ -979,16 +1118,20 @@ elif page == "🌍 Global Trends":
         if selected_type != "All":
             filtered_df = filtered_df[filtered_df['type'] == selected_type]
         
-        # Count countries
-        country_counts = (
-            filtered_df['country']
-            .dropna()
-            .str.split(', ')
-            .explode()
-            .value_counts()
-            .reset_index()
-        )
-        country_counts.columns = ['Country', 'Count']
+        # Count countries - handle NaN values
+        if not filtered_df.empty and 'country' in filtered_df.columns:
+            country_counts = (
+                filtered_df['country']
+                .dropna()
+                .astype(str)
+                .str.split(', ')
+                .explode()
+                .value_counts()
+                .reset_index()
+            )
+            country_counts.columns = ['Country', 'Count']
+        else:
+            country_counts = pd.DataFrame(columns=['Country', 'Count'])
         
         # Metrics
         col1, col2, col3, col4 = st.columns(4)
@@ -1000,23 +1143,29 @@ elif page == "🌍 Global Trends":
             st.metric("Countries", country_counts.shape[0])
         
         with col3:
-            top_country = country_counts.iloc[0]['Country'] if len(country_counts) > 0 else "N/A"
-            st.metric("Top Country", top_country)
+            if len(country_counts) > 0:
+                top_country = country_counts.iloc[0]['Country']
+                st.metric("Top Country", top_country)
+            else:
+                st.metric("Top Country", "N/A")
         
         with col4:
-            top_count = country_counts.iloc[0]['Count'] if len(country_counts) > 0 else 0
-            st.metric("Top Count", top_count)
+            if len(country_counts) > 0:
+                top_count = country_counts.iloc[0]['Count']
+                st.metric("Top Count", top_count)
+            else:
+                st.metric("Top Count", "0")
         
-        # Choropleth Map
-        st.markdown("<h3>🌐 Global Contribution Map</h3>", unsafe_allow_html=True)
-        
+        # Choropleth Map - Only if we have country data
         if len(country_counts) > 0:
+            st.markdown("<h3>🌐 Global Contribution Map</h3>", unsafe_allow_html=True)
+            
             fig_map = px.choropleth(
                 country_counts,
                 locations='Country',
                 locationmode='country names',
                 color='Count',
-                color_continuous_scale='gold',
+                color_continuous_scale=MAP_COLOR_SCALE,  # Valid Plotly color scale
                 title=f"Content Production by Country ({selected_type})"
             )
             
@@ -1045,9 +1194,9 @@ elif page == "🌍 Global Trends":
             st.warning("No country data available for the selected filters.")
         
         # Top Countries Bar Chart
-        st.markdown("<h3>🏆 Top 15 Content Producing Countries</h3>", unsafe_allow_html=True)
-        
         if len(country_counts) > 0:
+            st.markdown("<h3>🏆 Top 15 Content Producing Countries</h3>", unsafe_allow_html=True)
+            
             top_countries = country_counts.head(15)
             
             fig_bar = px.bar(
@@ -1056,7 +1205,7 @@ elif page == "🌍 Global Trends":
                 y='Country',
                 orientation='h',
                 color='Count',
-                color_continuous_scale='gold'
+                color_continuous_scale=MAP_COLOR_SCALE
             )
             
             fig_bar.update_layout(
@@ -1064,56 +1213,67 @@ elif page == "🌍 Global Trends":
                 paper_bgcolor='rgba(0,0,0,0)',
                 plot_bgcolor='rgba(0,0,0,0)',
                 font=dict(color='#f5c77a'),
-                xaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)')
+                xaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)'),
+                yaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)')
             )
             
             st.plotly_chart(fig_bar, use_container_width=True)
         
         # Regional Analysis
-        st.markdown("<div class='form-section'>", unsafe_allow_html=True)
-        st.markdown("<h4>📈 Regional Analysis</h4>", unsafe_allow_html=True)
-        
-        # Group by continent/region (simplified)
-        region_mapping = {
-            'United States': 'North America',
-            'India': 'Asia',
-            'United Kingdom': 'Europe',
-            'Canada': 'North America',
-            'France': 'Europe',
-            'Japan': 'Asia',
-            'Spain': 'Europe',
-            'South Korea': 'Asia',
-            'Mexico': 'Latin America',
-            'Australia': 'Oceania'
-        }
-        
-        country_counts['Region'] = country_counts['Country'].map(region_mapping)
-        region_counts = country_counts.dropna().groupby('Region')['Count'].sum().reset_index()
-        
-        fig_pie = px.pie(
-            region_counts,
-            values='Count',
-            names='Region',
-            color_discrete_sequence=px.colors.sequential.gold
-        )
-        
-        fig_pie.update_traces(
-            textinfo='percent+label',
-            marker=dict(line=dict(color='#000000', width=1))
-        )
-        
-        fig_pie.update_layout(
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            font=dict(color='#f5c77a'),
-            showlegend=True
-        )
-        
-        st.plotly_chart(fig_pie, use_container_width=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+        if len(country_counts) > 0:
+            st.markdown("<div class='form-section'>", unsafe_allow_html=True)
+            st.markdown("<h4>📈 Regional Analysis</h4>", unsafe_allow_html=True)
+            
+            # Group by continent/region (simplified)
+            region_mapping = {
+                'United States': 'North America',
+                'India': 'Asia',
+                'United Kingdom': 'Europe',
+                'Canada': 'North America',
+                'France': 'Europe',
+                'Japan': 'Asia',
+                'Spain': 'Europe',
+                'South Korea': 'Asia',
+                'Mexico': 'Latin America',
+                'Australia': 'Oceania',
+                'Germany': 'Europe',
+                'Italy': 'Europe',
+                'Brazil': 'Latin America',
+                'China': 'Asia',
+                'Russia': 'Europe'
+            }
+            
+            country_counts['Region'] = country_counts['Country'].map(region_mapping)
+            region_counts = country_counts.dropna(subset=['Region']).groupby('Region')['Count'].sum().reset_index()
+            
+            if not region_counts.empty:
+                fig_pie = px.pie(
+                    region_counts,
+                    values='Count',
+                    names='Region',
+                    color_discrete_sequence=px.colors.sequential.Oranges
+                )
+                
+                fig_pie.update_traces(
+                    textinfo='percent+label',
+                    marker=dict(line=dict(color='#000000', width=1))
+                )
+                
+                fig_pie.update_layout(
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    font=dict(color='#f5c77a'),
+                    showlegend=True
+                )
+                
+                st.plotly_chart(fig_pie, use_container_width=True)
+            else:
+                st.info("Insufficient data for regional analysis.")
+            
+            st.markdown("</div>", unsafe_allow_html=True)
     
     else:
-        st.error("❌ No data available. Please load the dataset.")
+        st.error("❌ Required columns not available. Please check data structure.")
     
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -1154,16 +1314,22 @@ elif page == "📈 Raw Data":
             )
         
         with col2:
-            year_filter = st.multiselect(
-                "Filter by Release Year",
-                sorted(df['release_year'].dropna().unique(), reverse=True)[:20]
-            )
+            if 'release_year' in df.columns:
+                year_filter = st.multiselect(
+                    "Filter by Release Year",
+                    sorted(df['release_year'].dropna().unique(), reverse=True)[:20]
+                )
+            else:
+                year_filter = []
         
         with col3:
-            country_filter = st.multiselect(
-                "Filter by Country",
-                df['country'].dropna().str.split(', ').explode().value_counts().head(20).index.tolist()
-            )
+            if 'country' in df.columns:
+                country_filter = st.multiselect(
+                    "Filter by Country",
+                    df['country'].dropna().astype(str).str.split(', ').explode().value_counts().head(20).index.tolist()
+                )
+            else:
+                country_filter = []
         
         # Apply filters
         filtered_data = df.copy()
@@ -1171,11 +1337,13 @@ elif page == "📈 Raw Data":
         if content_filter:
             filtered_data = filtered_data[filtered_data['type'].isin(content_filter)]
         
-        if year_filter:
+        if year_filter and 'release_year' in filtered_data.columns:
             filtered_data = filtered_data[filtered_data['release_year'].isin(year_filter)]
         
-        if country_filter:
-            filtered_data = filtered_data[filtered_data['country'].str.contains('|'.join(country_filter), na=False)]
+        if country_filter and 'country' in filtered_data.columns:
+            # Create a regex pattern to match any of the selected countries
+            pattern = '|'.join(country_filter)
+            filtered_data = filtered_data[filtered_data['country'].astype(str).str.contains(pattern, na=False)]
         
         # Display data
         st.dataframe(
@@ -1216,7 +1384,7 @@ elif page == "📈 Raw Data":
         for col in df.columns:
             dtype = str(df[col].dtype)
             non_null = df[col].count()
-            null_percent = (1 - non_null/len(df)) * 100
+            null_percent = (1 - non_null/len(df)) * 100 if len(df) > 0 else 100
             
             schema_data.append({
                 'Column': col,
