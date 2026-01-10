@@ -1213,8 +1213,7 @@ elif page == "🌍 Global Trends":
                 paper_bgcolor='rgba(0,0,0,0)',
                 plot_bgcolor='rgba(0,0,0,0)',
                 font=dict(color='#f5c77a'),
-                xaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)'),
-                yaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)')
+                xaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)')
             )
             
             st.plotly_chart(fig_bar, use_container_width=True)
