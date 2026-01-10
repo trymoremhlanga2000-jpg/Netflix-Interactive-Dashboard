@@ -1,625 +1,1244 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 
-
-# -------------------------
-# Page Config
-# -------------------------
+# =============================
+# PAGE CONFIGURATION
+# =============================
 st.set_page_config(
-    page_title="Streaming Dashboard",
-    page_icon="🎬",
-    layout="wide"
+    page_title="StreamElite | Premium Streaming Analytics",
+    page_icon="💎",
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# -------------------------
-# Load Data
-# -------------------------
-@st.cache_data
-def load_data():
-    return pd.read_csv('data/netflix_cleaned.csv')
-
-df = load_data()
-
-# -------------------------
-# Sidebar Navigation
-# -------------------------
-st.markdown("""
-        <style>
-        /* Sidebar background color */
-        [data-testid="stSidebar"] {
-            background-color: #2c445c;
-        }
-
-        /* Sidebar title and radio button text */
-        [data-testid="stSidebar"] h1, [data-testid="stSidebar"] label {
-            color: white;
-        }
-
-        /* Sidebar footer text */
-        .sidebar .markdown-text-container {
-            color: #6e6e6e;
-        }
-
-        </style>
-    """, unsafe_allow_html=True)
-st.sidebar.title("📊 Navigation")
-section = st.sidebar.radio(
-    "📍 Navigate",
-    [
-        "Home",
-        "Content Overview",
-        "Genre Insights",
-        "Retention Analysis",
-        "Duration Distribution",
-        "Country Trends",
-        "Raw Data"
-    ]
-)
-
-st.sidebar.markdown("---")
-st.sidebar.markdown("👩‍💻 *By Trymore Mhlanga*")
-
-# -------------------------
-# Section: Home
-# -------------------------
-if section == "Home":
-    # Custom CSS for modern styling
+# =============================
+# GOLD + BLACK PREMIUM THEME
+# =============================
+def apply_premium_theme():
     st.markdown("""
     <style>
-    /* Override Streamlit's default dark theme text colors */
-    .main-header {
-        background: #2c445c;
-        padding: 2rem;
-        border-radius: 15px;
-        text-align: center;
-        color: white !important;
-        margin-bottom: 2rem;
+    /* MAIN BACKGROUND */
+    body, .stApp {
+        background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+        color: #f5c77a;
+        font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
     }
     
-    .feature-card {
-        background: rgba(255, 255, 255, 0.95) !important;
-        padding: 1.5rem;
-        border-radius: 12px;
-        border-left: 7px solid #6f9eb6;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-        margin-bottom: 1rem;
-        transition: transform 0.3s ease;
-        color: #1f2937 !important;
-    }
-    
-    .feature-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(37, 99, 235, 0.3);
-    }
-    
-    .feature-card h4 {
-        color: #1f2937 !important;
-        margin-bottom: 0.5rem;
-    }
-    
-    .feature-card p {
-        color: #374151 !important;
-        margin: 0;
-    }
-    
-    .stats-container {
-        padding: 2rem;
-        border-radius: 15px;
-        margin: 2rem 0;
-        color: #ffffff !important;
-    }
-    
-    .stats-container h3 {
-        color: #ffffff !important;
-    }
-    
-    .stats-container p {
-        color: #ffffff !important;
-    }
-    
-    .tech-badge {
-        display: inline-block;
-        background: #2c445c !important;
-        color: white !important;
-        padding: 0.3rem 0.8rem;
-        border-radius: 20px;
-        font-size: 0.8rem;
-        margin: 0.2rem;
-        font-weight: 500;
-    }
-    
-    .profile-section {
-        background: rgba(255, 255, 255, 0.95) !important;
-        border: 1px solid #e2e8f0;
-        padding: 2rem;
-        border-radius: 15px;
-        margin: 2rem 0;
-        color: #1f2937 !important;
-    }
-    
-    .profile-section h3 {
-        color: #1f2937 !important;
-    }
-    
-    .profile-section p {
-        color: #374151 !important;
-    }
-    
-    .profile-section ul {
-        color: #374151 !important;
-    }
-    
-    .profile-section li {
-        color: #374151 !important;
-    }
-    
-    .social-links {
-        display: flex;
-        gap: 1rem;
-        margin-top: 1rem;
-    }
-    
-    .social-btn {
-        background: #2c445c !important;
-        color: white !important;
-        padding: 0.5rem 1rem;
-        border-radius: 25px;
-        text-decoration: none;
-        font-weight: 500;
+    /* CARD DESIGN - PREMIUM GLASS EFFECT */
+    .card {
+        background: linear-gradient(145deg, rgba(15, 15, 15, 0.95), rgba(26, 26, 26, 0.95));
+        backdrop-filter: blur(10px);
+        border-radius: 24px;
+        padding: 30px;
+        margin-bottom: 25px;
+        border: 1px solid rgba(245, 199, 122, 0.25);
+        box-shadow: 
+            0 8px 32px rgba(245, 199, 122, 0.15),
+            inset 0 1px 0 rgba(255, 255, 255, 0.1);
         transition: all 0.3s ease;
-        margin-bottom: 0.5rem;
     }
     
-    .social-btn:hover {
-        background: #1e40af !important;
-        transform: translateY(-1px);
-        text-decoration: none;
-        color: white !important;
+    .card:hover {
+        border-color: rgba(245, 199, 122, 0.4);
+        box-shadow: 
+            0 12px 48px rgba(245, 199, 122, 0.25),
+            inset 0 1px 0 rgba(255, 255, 255, 0.15);
+        transform: translateY(-2px);
     }
     
-    /* Force light text on dark backgrounds */
-    .light-text {
-        color: #f8fafc !important;
+    /* TYPOGRAPHY - LUXURY STYLE */
+    h1, h2, h3 {
+        color: #f5c77a !important;
+        font-weight: 800 !important;
+        letter-spacing: 0.5px;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        margin-bottom: 1.5rem !important;
     }
     
-    .light-text h2 {
-        color: #f8fafc !important;
+    h1 {
+        font-size: 2.8rem !important;
+        background: linear-gradient(90deg, #f5c77a, #ffd98e);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        position: relative;
     }
     
-    .light-text p {
-        color: #e2e8f0 !important;
+    h1:after {
+        content: '';
+        position: absolute;
+        bottom: -10px;
+        left: 0;
+        width: 100px;
+        height: 3px;
+        background: linear-gradient(90deg, #f5c77a, transparent);
+        border-radius: 2px;
     }
     
-    .dataset-info {
-        color: #f8fafc !important;
+    /* INPUT CONTROLS - LUXURY STYLE */
+    .stSelectbox > div, .stNumberInput > div, .stSlider > div, .stRadio > div {
+        background: rgba(18, 18, 18, 0.9) !important;
+        border: 1.5px solid rgba(245, 199, 122, 0.3) !important;
+        border-radius: 12px !important;
+        color: #f5c77a !important;
+        transition: all 0.3s ease;
     }
     
-    .dataset-info a {
-        color: #60a5fa !important;
+    .stSelectbox > div:hover, .stNumberInput > div:hover, 
+    .stSlider > div:hover, .stRadio > div:hover {
+        border-color: rgba(245, 199, 122, 0.6) !important;
+        box-shadow: 0 0 20px rgba(245, 199, 122, 0.15);
     }
     
-    .dataset-info ul {
-        color: #e2e8f0 !important;
+    /* BUTTONS - PREMIUM GOLD GRADIENT */
+    .stButton > button {
+        background: linear-gradient(135deg, #f5c77a 0%, #ffd98e 100%);
+        color: #0a0a0a !important;
+        border-radius: 12px;
+        padding: 14px 28px;
+        font-size: 16px;
+        font-weight: 700;
+        border: none;
+        box-shadow: 
+            0 4px 20px rgba(245, 199, 122, 0.4),
+            0 2px 4px rgba(0, 0, 0, 0.3);
+        transition: all 0.3s ease;
+        letter-spacing: 0.5px;
     }
     
-    .dataset-info li {
-        color: #e2e8f0 !important;
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 
+            0 8px 30px rgba(245, 199, 122, 0.6),
+            0 4px 8px rgba(0, 0, 0, 0.4);
+        background: linear-gradient(135deg, #ffd98e 0%, #f5c77a 100%);
     }
     
-    .footer-text {
-        color: #cbd5e1 !important;
+    /* METRICS - PREMIUM CARDS */
+    [data-testid="metric-container"] {
+        background: rgba(15, 15, 15, 0.7) !important;
+        border: 1px solid rgba(245, 199, 122, 0.2);
+        border-radius: 16px;
+        padding: 20px;
     }
     
-    .footer-text strong {
-        color: #f8fafc !important;
+    [data-testid="metric-label"] {
+        color: #b0b0b0 !important;
+        font-size: 14px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+    }
+    
+    [data-testid="metric-value"] {
+        color: #f5c77a !important;
+        font-size: 2rem;
+        font-weight: 800;
+    }
+    
+    /* SIDEBAR - DARK LUXURY */
+    section[data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #0f0f0f 0%, #1a1a1a 100%);
+        border-right: 1px solid rgba(245, 199, 122, 0.1);
+    }
+    
+    .sidebar .sidebar-content {
+        background: transparent !important;
+    }
+    
+    /* PROGRESS BAR - GOLD STYLE */
+    .stProgress > div > div {
+        background: linear-gradient(90deg, #f5c77a, #ffd98e);
+        border-radius: 10px;
+    }
+    
+    /* TABS - PREMIUM STYLE */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        background: rgba(18, 18, 18, 0.8) !important;
+        border: 1px solid rgba(245, 199, 122, 0.2) !important;
+        color: #b0b0b0 !important;
+        border-radius: 12px !important;
+        padding: 10px 24px !important;
+        transition: all 0.3s ease;
+    }
+    
+    .stTabs [data-baseweb="tab"]:hover {
+        border-color: rgba(245, 199, 122, 0.4) !important;
+        color: #f5c77a !important;
+    }
+    
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(135deg, rgba(245, 199, 122, 0.2), rgba(255, 217, 142, 0.1)) !important;
+        border-color: #f5c77a !important;
+        color: #f5c77a !important;
+    }
+    
+    /* CONTENT BADGES */
+    .content-badge {
+        display: inline-block;
+        padding: 12px 30px;
+        border-radius: 25px;
+        font-weight: 800;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        font-size: 18px;
+        margin: 10px;
+        text-align: center;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    }
+    
+    .movie-badge {
+        background: linear-gradient(135deg, rgba(37, 99, 235, 0.2), rgba(30, 64, 175, 0.1));
+        color: #60a5fa;
+        border: 1px solid rgba(37, 99, 235, 0.3);
+    }
+    
+    .tv-badge {
+        background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(185, 28, 28, 0.1));
+        color: #f87171;
+        border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+    
+    /* FORM STYLING */
+    .form-section {
+        background: rgba(20, 20, 20, 0.6);
+        border-radius: 16px;
+        padding: 20px;
+        margin: 15px 0;
+        border: 1px solid rgba(245, 199, 122, 0.15);
+    }
+    
+    /* INSIGHT CARDS */
+    .insight-card {
+        background: rgba(18, 18, 18, 0.7);
+        border-radius: 16px;
+        padding: 20px;
+        margin: 10px 0;
+        border: 1px solid rgba(245, 199, 122, 0.1);
+        transition: all 0.3s ease;
+    }
+    
+    .insight-card:hover {
+        border-color: rgba(245, 199, 122, 0.3);
+        transform: translateY(-3px);
+        box-shadow: 0 10px 30px rgba(245, 199, 122, 0.15);
+    }
+    
+    /* STATS CARDS */
+    .stats-card {
+        background: linear-gradient(135deg, rgba(30, 30, 30, 0.9), rgba(20, 20, 20, 0.9));
+        border-radius: 16px;
+        padding: 20px;
+        border: 1px solid rgba(245, 199, 122, 0.2);
+        text-align: center;
+    }
+    
+    /* FOOTER */
+    .footer {
+        position: fixed;
+        bottom: 20px;
+        right: 30px;
+        font-size: 12px;
+        color: rgba(245, 199, 122, 0.6);
+        letter-spacing: 1px;
+        font-weight: 300;
+    }
+    
+    /* TREND INDICATORS */
+    .trend-indicator {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        margin-right: 10px;
+    }
+    
+    .trend-up { background-color: #22c55e; }
+    .trend-stable { background-color: #f59e0b; }
+    .trend-down { background-color: #ef4444; }
+    
+    /* CHART STYLING OVERRIDES */
+    .js-plotly-plot .plotly, .js-plotly-plot .plotly div {
+        background-color: transparent !important;
     }
     </style>
     """, unsafe_allow_html=True)
+
+apply_premium_theme()
+
+# =============================
+# LOAD DATA
+# =============================
+@st.cache_data
+def load_data():
+    try:
+        df = pd.read_csv('data/netflix_cleaned.csv')
+        
+        # Preprocess duration field for Movies and TV Shows
+        movie_mask = df['type'] == 'Movie'
+        tv_mask = df['type'] == 'TV Show'
+        
+        # Extract minutes for movies
+        df.loc[movie_mask, 'duration_int'] = df.loc[movie_mask, 'duration'].str.extract('(\d+)').astype(float)
+        
+        # Extract seasons for TV shows
+        df.loc[tv_mask, 'duration_int'] = df.loc[tv_mask, 'duration'].str.extract('(\d+)').astype(float)
+        
+        return df
+    except FileNotFoundError:
+        st.error("❌ Data file not found. Please ensure 'data/netflix_cleaned.csv' exists.")
+        return pd.DataFrame()
+
+df = load_data()
+
+# =============================
+# SIDEBAR NAVIGATION
+# =============================
+st.sidebar.markdown("<h2 style='text-align: center;'>💎 StreamElite</h2>", unsafe_allow_html=True)
+st.sidebar.markdown("<div style='text-align: center; color: rgba(245, 199, 122, 0.7); margin-bottom: 30px;'>PREMIUM STREAMING ANALYTICS</div>", unsafe_allow_html=True)
+
+page = st.sidebar.radio(
+    "NAVIGATION",
+    ["🏠 Dashboard", "📊 Content Overview", "🎭 Genre Intelligence", 
+     "⏱️ Retention Analysis", "⏳ Duration Distribution", 
+     "🌍 Global Trends", "📈 Raw Data"],
+    label_visibility="collapsed"
+)
+
+st.sidebar.markdown("---")
+st.sidebar.markdown("<div style='text-align: center; color: rgba(245, 199, 122, 0.7);'>👨‍💻 By Trymore Mhlanga</div>", unsafe_allow_html=True)
+
+# =============================
+# DASHBOARD PAGE
+# =============================
+if page == "🏠 Dashboard":
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
     
-    # Main Header
-    st.markdown("""
-    <div class="main-header">
-        <h1>🎬 Streaming Service Insights</h1>
-        <p style="font-size: 1.2rem; margin-top: 1rem; opacity: 0.9;">
-            Discover trends, patterns, and insights from Netflix's global content library
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Welcome Section
-    st.markdown("""
-    <div class="light-text" style="text-align: center; margin: 2rem 0;">
-        <h2 style="color: #f8fafc !important; margin-bottom: 1rem;">Welcome to Your Data Journey</h2>
-        <p style="font-size: 1.1rem; color: #e2e8f0 !important; max-width: 800px; margin: 0 auto;">
-            Dive deep into Netflix's content ecosystem with interactive visualizations and comprehensive analytics. 
-            Uncover hidden patterns in streaming entertainment data.
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Features Grid
-    st.markdown('<h2 style="color: #f8fafc !important;">🔍 Explore These Insights</h2>', unsafe_allow_html=True)
-    st.markdown('<p style="color: #e2e8f0 !important; margin-bottom: 1.5rem;">Click on any feature to learn more about what insights you can discover.</p>', unsafe_allow_html=True)
-    
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns([2, 1, 1])
     
     with col1:
+        st.markdown("<h1>STREAMELITE INTELLIGENCE</h1>", unsafe_allow_html=True)
         st.markdown("""
-        <div class="feature-card">
-            <h4>📊 Content Overview</h4>
-            <p>Visualize how Netflix’s content library has evolved with an interactive donut chart showing the balance between Movies and TV Shows, along with release trends across months, years, and decades.</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("""
-        <div class="feature-card">
-            <h4>🎭 Genre Intelligence</h4>
-            <p>Analyze the most popular genres and their trends over time. Filter by content type to see how genre preferences vary between Movies and TV Shows.</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("""
-        <div class="feature-card">
-            <h4>⏱️ Retention Analysis by Genre</h4>
-            <p>Compare average movie durations and TV show seasons by genre to understand which genres may retain users longer.</p>
+        <div style='color: rgba(245, 199, 122, 0.8); font-size: 18px; line-height: 1.6;'>
+        Advanced streaming analytics platform revealing insights from Netflix's global content library. 
+        Enterprise-grade analytics with interactive visualizations for content strategy optimization.
         </div>
         """, unsafe_allow_html=True)
     
     with col2:
-        st.markdown("""
-        <div class="feature-card">
-            <h4>⏳ Duration Distribution</h4>
-            <p>Understand how long Netflix content typically is with interactive histograms showing the distribution of movie runtimes and TV show season counts.</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("""
-        <div class="feature-card">
-            <h4>🌍 Country-Wise Contribution</h4>
-            <p>Explore which countries contribute the most to Netflix’s content library using bar charts and a global choropleth map, highlighting regional strengths in content production.</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("""
-        <div class="feature-card">
-            <h4>📊 Raw Data Exploration</h4>
-            <p>Access the raw Netflix dataset used for analysis. Download the CSV file to explore the data in your own tools.</p>
-        </div>
-        """, unsafe_allow_html=True)
+        if not df.empty:
+            total_titles = len(df)
+            st.metric("Total Titles", f"{total_titles:,}")
+        else:
+            st.metric("Total Titles", "0")
     
-    # Navigation Info
-    st.markdown("""
-    <div class="stats-container">
-        <h3 style="text-align: center; margin-bottom: 1rem;">🧭 Navigation Guide</h3>
-        <p style="text-align: center; font-size: 1.1rem;">
-            Use the <strong>📊 Navigation</strong> sidebar to explore each analytical section. 
-            Each page offers interactive filters and detailed visualizations.
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
+    with col3:
+        if not df.empty:
+            latest_year = df['release_year'].max()
+            st.metric("Latest Data", f"{int(latest_year)}")
+        else:
+            st.metric("Latest Data", "N/A")
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+    
+    # Key Metrics
+    if not df.empty:
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            movies_count = len(df[df['type'] == 'Movie'])
+            st.metric("Movies", f"{movies_count:,}")
+        
+        with col2:
+            tv_count = len(df[df['type'] == 'TV Show'])
+            st.metric("TV Shows", f"{tv_count:,}")
+        
+        with col3:
+            countries = df['country'].dropna().str.split(', ').explode().nunique()
+            st.metric("Countries", f"{countries}")
+        
+        with col4:
+            genres = df['listed_in'].dropna().str.split(', ').explode().nunique()
+            st.metric("Genres", f"{genres}")
+    
+    # Features Grid
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
+    st.markdown("<h2>🔍 Explore Premium Insights</h2>", unsafe_allow_html=True)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("<div class='insight-card'>", unsafe_allow_html=True)
+        st.markdown("### 📊 Content Overview")
+        st.markdown("""
+        • Movies vs TV Shows distribution  
+        • Monthly release patterns  
+        • Yearly content trends  
+        • Decade-wise analysis
+        """)
+        st.markdown("</div>", unsafe_allow_html=True)
+        
+        st.markdown("<div class='insight-card'>", unsafe_allow_html=True)
+        st.markdown("### 🎭 Genre Intelligence")
+        st.markdown("""
+        • Top genres across content types  
+        • Genre popularity trends  
+        • Interactive filtering  
+        • Comparative analysis
+        """)
+        st.markdown("</div>", unsafe_allow_html=True)
+        
+        st.markdown("<div class='insight-card'>", unsafe_allow_html=True)
+        st.markdown("### ⏱️ Retention Analysis")
+        st.markdown("""
+        • Movie duration by genre  
+        • TV show seasons analysis  
+        • Engagement metrics  
+        • Content longevity insights
+        """)
+        st.markdown("</div>", unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown("<div class='insight-card'>", unsafe_allow_html=True)
+        st.markdown("### ⏳ Duration Distribution")
+        st.markdown("""
+        • Movie runtime patterns  
+        • TV show season counts  
+        • Content length trends  
+        • Interactive histograms
+        """)
+        st.markdown("</div>", unsafe_allow_html=True)
+        
+        st.markdown("<div class='insight-card'>", unsafe_allow_html=True)
+        st.markdown("### 🌍 Global Trends")
+        st.markdown("""
+        • Country-wise contributions  
+        • Choropleth world map  
+        • Regional content analysis  
+        • Production hotspots
+        """)
+        st.markdown("</div>", unsafe_allow_html=True)
+        
+        st.markdown("<div class='insight-card'>", unsafe_allow_html=True)
+        st.markdown("### 📈 Raw Data Explorer")
+        st.markdown("""
+        • Complete dataset access  
+        • Interactive filtering  
+        • CSV download  
+        • Detailed metadata
+        """)
+        st.markdown("</div>", unsafe_allow_html=True)
     
     # Dataset Info
-    st.markdown('<h2 style="color: #f8fafc !important;">📂 Dataset Information</h2>', unsafe_allow_html=True)
+    st.markdown("<h3>📂 Dataset Information</h3>", unsafe_allow_html=True)
     
     col1, col2 = st.columns([2, 1])
     
     with col1:
         st.markdown("""
-        <div class="dataset-info">
-        <strong>Source</strong>: <a href="https://www.kaggle.com/datasets/shivamb/netflix-shows" style="color: #60a5fa !important;">Netflix Titles Dataset on Kaggle</a>
+        <div style='color: rgba(245, 199, 122, 0.9); line-height: 1.8;'>
+        <strong>Source:</strong> Netflix Titles Dataset on Kaggle
         
-        <p style="color: #e2e8f0 !important; margin-top: 1rem;">
-        This comprehensive dataset contains detailed information about Netflix's content library including:
-        </p>
-        <ul style="color: #e2e8f0 !important;">
-            <li>Content titles, descriptions, and metadata</li>
-            <li>Release dates and production countries</li>
-            <li>Genre classifications and duration data</li>
-            <li>Cast and director information</li>
-            <li>Content ratings and classifications</li>
-        </ul>
+        This comprehensive dataset contains detailed information about Netflix's global content library:
+        
+        • Content titles, descriptions, and metadata  
+        • Release dates and production countries  
+        • Genre classifications and duration data  
+        • Cast and director information  
+        • Content ratings and classifications
         </div>
         """, unsafe_allow_html=True)
     
     with col2:
-        st.info("""
-        📊 **Dataset Stats**
-        - 8,000+ titles analyzed
-        - 10+ years of data
-        - 200+ countries covered
-        - 20+ genres tracked
-        """)
+        st.markdown("<div class='stats-card'>", unsafe_allow_html=True)
+        st.markdown("##### 📊 Dataset Stats")
+        if not df.empty:
+            st.markdown(f"""
+            <div style='color: #f5c77a;'>
+            • {len(df):,}+ titles analyzed  
+            • {df['release_year'].max() - df['release_year'].min()}+ years  
+            • {countries}+ countries  
+            • {genres}+ genres
+            </div>
+            """, unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
     
+    st.markdown("</div>", unsafe_allow_html=True)
 
-# -------------------------
-# Section: Content Overview
-# -------------------------
-elif section == "Content Overview":
-    st.header("📅 Content Overview")
-    st.markdown("Explore how Netflix content types and release patterns have changed over time.")
-
-    st.subheader("Content Type Analysis")
-
-    # Filter by Year
-    years_sorted = sorted(df['release_year'].dropna().unique(), reverse=True)
-    selected_year = st.selectbox("Filter by Release Year", years_sorted)
-
-    filtered_df = df[df['release_year'] == selected_year]
-
-    if not filtered_df.empty:
-        type_counts = filtered_df['type'].value_counts()
-
-        fig = px.pie(
-            names=type_counts.index,
-            values=type_counts.values,
-            hole=0.5,
-            color_discrete_sequence=['#4e79a7', '#f28e2b']
-        )
-        fig.update_traces(
-            textinfo='percent+label',
-            marker=dict(line=dict(color='#FFFFFF', width=2))
-        )
-        fig.update_layout(
-            title=f"Distribution in {selected_year}",
-            showlegend=False,
-            height=400,
-            margin=dict(t=50, b=0, l=0, r=0)
-        )
-
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.warning(f"No data available for {selected_year}.")
+# =============================
+# CONTENT OVERVIEW PAGE
+# =============================
+elif page == "📊 Content Overview":
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
+    st.markdown("<h1>📊 CONTENT OVERVIEW ANALYTICS</h1>", unsafe_allow_html=True)
     
-    st.markdown("---")
-    import plotly.express as px
-
-    st.markdown("## Content Over Time")
-    st.markdown("How Netflix’s content output has changed over time by format.")
-
-    # --- Monthly Trend ---
-    st.subheader(" Monthly Release Trend (by Type)")
-    df['month_added'] = pd.to_datetime(df['date_added'], errors='coerce').dt.month
-    month_grouped = df.groupby(['month_added', 'type']).size().reset_index(name='count')
-    month_grouped['month_added'] = month_grouped['month_added'].fillna(0).astype(int)
-
-    # Map month number to names
-    month_map = {
-        1: 'Jan', 2: 'Feb', 3: 'Mar', 4: 'Apr', 5: 'May', 6: 'Jun',
-        7: 'Jul', 8: 'Aug', 9: 'Sep', 10: 'Oct', 11: 'Nov', 12: 'Dec'
-    }
-    month_grouped['month'] = month_grouped['month_added'].map(month_map)
-    month_grouped = month_grouped.sort_values(by='month_added')
-
-    fig_month = px.bar(
-        month_grouped, x='month', y='count', color='type',
-        barmode='group', title="Monthly Releases by Type"
-    )
-    st.plotly_chart(fig_month, use_container_width=True)
-
-    # --- Yearly Trend ---
-    st.subheader(" Yearly Release Trend (by Type)")
-    year_grouped = df.groupby(['release_year', 'type']).size().reset_index(name='count')
-    year_grouped = year_grouped[year_grouped['release_year'] >= 2000]  # Clean early noisy years
-
-    fig_year = px.line(
-        year_grouped, x='release_year', y='count', color='type',
-        markers=True, title="Yearly Releases by Type"
-    )
-    st.plotly_chart(fig_year, use_container_width=True)
-
-    # --- Decade-wise Trend ---
-    st.subheader(" Decade-wise Release Trend")
-    df['decade'] = (df['release_year'] // 10) * 10
-    decade_grouped = df.groupby(['decade', 'type']).size().reset_index(name='count')
-
-    fig_decade = px.bar(
-        decade_grouped, x='decade', y='count', color='type',
-        barmode='group', title="Content by Decade and Type"
-    )
-    st.plotly_chart(fig_decade, use_container_width=True)
-
-
-# -------------------------
-# Section: Genre Insights
-# -------------------------
-elif section == "Genre Insights":
-    st.header("🎭 Genre Patterns")
-    st.markdown("Explore the most frequent genres across Netflix content. You can filter by type (Movie/TV Show).")
-
-    content_type = st.selectbox("Select Content Type", ["All", "Movie", "TV Show"])
-
-    # --- Preprocess Genre Column ---
-    df['genre'] = df['listed_in'].str.split(',').str[0].str.strip()
-
-    if content_type != "All":
-        genre_data = df[df['type'] == content_type]
-    else:
-        genre_data = df
-
-    genre_counts = genre_data['genre'].value_counts().head(15).reset_index()
-    genre_counts.columns = ['Genre', 'Count']
-
-    # --- Horizontal Bar Chart ---
-    fig_genre = px.bar(
-        genre_counts.sort_values('Count'),
-        x='Count', y='Genre',
-        orientation='h',
-        color='Count',
-        color_continuous_scale='plasma',
-        title=f"Top 15 Genres ({content_type})"
-    )
-
-    st.plotly_chart(fig_genre, use_container_width=True)
-
-
-# -------------------------
-# Section: Retention Analysis
-# -------------------------
-elif section == "Retention Analysis":
-    st.subheader("🕒 Retention Proxies by Genre")
-    st.markdown("Compare average **movie durations** and **TV show seasons** by genre to understand which genres may retain users longer.")
-
-    col1, col2 = st.columns(2)
-
-    # --- Movie Durations by Genre ---
-    with col1:
-        st.markdown("**🎥 Average Movie Duration (mins)**")
-        movie_df = df[df['type'] == 'Movie'].copy()
-        movie_df['genre'] = movie_df['listed_in'].str.split(',').str[0].str.strip()
-        movie_df['duration'] = movie_df['duration'].str.extract('(\d+)').astype(float)
-
-        avg_movie_duration = movie_df.groupby('genre')['duration'].mean().sort_values(ascending=False).head(10)
-        fig_duration = px.bar(
-            avg_movie_duration,
-            x=avg_movie_duration.values,
-            y=avg_movie_duration.index,
-            orientation='h',
-            color=avg_movie_duration.values,
-            color_continuous_scale='burg',
-            labels={'x': 'Average Duration (mins)', 'y': 'Genre'},
-            title="Top 10 Genres by Movie Duration"
-        )
-        st.plotly_chart(fig_duration, use_container_width=True)
+    if not df.empty:
+        # Content Type Analysis
+        st.markdown("<h3>📅 Content Type Distribution</h3>", unsafe_allow_html=True)
         
+        col1, col2 = st.columns([2, 1])
+        
+        with col2:
+            st.markdown("<div class='form-section'>", unsafe_allow_html=True)
+            years_sorted = sorted(df['release_year'].dropna().unique(), reverse=True)
+            selected_year = st.selectbox("Select Release Year", years_sorted)
+            st.markdown("</div>", unsafe_allow_html=True)
+        
+        with col1:
+            filtered_df = df[df['release_year'] == selected_year]
+            
+            if not filtered_df.empty:
+                type_counts = filtered_df['type'].value_counts()
+                
+                # Custom color sequence matching gold theme
+                custom_colors = ['#f5c77a', '#ffd98e']
+                
+                fig = px.pie(
+                    names=type_counts.index,
+                    values=type_counts.values,
+                    hole=0.5,
+                    color_discrete_sequence=custom_colors
+                )
+                
+                fig.update_traces(
+                    textinfo='percent+label',
+                    marker=dict(line=dict(color='#000000', width=2)),
+                    textfont=dict(color='#f5c77a', size=14)
+                )
+                
+                fig.update_layout(
+                    title=f"Content Distribution in {selected_year}",
+                    showlegend=True,
+                    height=400,
+                    margin=dict(t=50, b=0, l=0, r=0),
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    font=dict(color='#f5c77a'),
+                    legend=dict(font=dict(color='#f5c77a'))
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.warning(f"⚠️ No data available for {selected_year}")
+        
+        st.markdown("---")
+        
+        # Time-based Trends
+        st.markdown("<h3>📈 Content Release Trends</h3>", unsafe_allow_html=True)
+        
+        # Monthly Trend
+        st.markdown("<h4>📅 Monthly Release Pattern</h4>", unsafe_allow_html=True)
+        df['month_added'] = pd.to_datetime(df['date_added'], errors='coerce').dt.month
+        month_grouped = df.groupby(['month_added', 'type']).size().reset_index(name='count')
+        month_grouped['month_added'] = month_grouped['month_added'].fillna(0).astype(int)
+        
+        month_map = {
+            1: 'Jan', 2: 'Feb', 3: 'Mar', 4: 'Apr', 5: 'May', 6: 'Jun',
+            7: 'Jul', 8: 'Aug', 9: 'Sep', 10: 'Oct', 11: 'Nov', 12: 'Dec'
+        }
+        month_grouped['month'] = month_grouped['month_added'].map(month_map)
+        month_grouped = month_grouped.sort_values(by='month_added')
+        
+        fig_month = px.bar(
+            month_grouped, x='month', y='count', color='type',
+            barmode='group',
+            color_discrete_sequence=custom_colors
+        )
+        fig_month.update_layout(
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            font=dict(color='#f5c77a'),
+            xaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)'),
+            yaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)')
+        )
+        st.plotly_chart(fig_month, use_container_width=True)
+        
+        # Yearly Trend
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("<h4>📊 Yearly Release Trend</h4>", unsafe_allow_html=True)
+            year_grouped = df.groupby(['release_year', 'type']).size().reset_index(name='count')
+            year_grouped = year_grouped[year_grouped['release_year'] >= 2000]
+            
+            fig_year = px.line(
+                year_grouped, x='release_year', y='count', color='type',
+                markers=True,
+                color_discrete_sequence=custom_colors
+            )
+            fig_year.update_layout(
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(color='#f5c77a'),
+                xaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)'),
+                yaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)')
+            )
+            st.plotly_chart(fig_year, use_container_width=True)
+        
+        with col2:
+            st.markdown("<h4>🕰️ Decade-wise Analysis</h4>", unsafe_allow_html=True)
+            df['decade'] = (df['release_year'] // 10) * 10
+            decade_grouped = df.groupby(['decade', 'type']).size().reset_index(name='count')
+            
+            fig_decade = px.bar(
+                decade_grouped, x='decade', y='count', color='type',
+                barmode='group',
+                color_discrete_sequence=custom_colors
+            )
+            fig_decade.update_layout(
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(color='#f5c77a'),
+                xaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)'),
+                yaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)')
+            )
+            st.plotly_chart(fig_decade, use_container_width=True)
+    
+    else:
+        st.error("❌ No data available. Please load the dataset.")
+    
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    # --- TV Show Seasons by Genre ---
-    with col2:
-        st.markdown("**📺 Average TV Show (seasons)**")
-        show_df = df[df['type'] == 'TV Show'].copy()
-        show_df['genre'] = show_df['listed_in'].str.split(',').str[0].str.strip()
-        show_df['seasons'] = show_df['duration'].str.extract('(\d+)').astype(float)
-
-        avg_seasons = show_df.groupby('genre')['seasons'].mean().sort_values(ascending=False).head(10)
-        fig_seasons = px.bar(
-            avg_seasons,
-            x=avg_seasons.values,
-            y=avg_seasons.index,
+# =============================
+# GENRE INTELLIGENCE PAGE
+# =============================
+elif page == "🎭 Genre Intelligence":
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
+    st.markdown("<h1>🎭 GENRE INTELLIGENCE DASHBOARD</h1>", unsafe_allow_html=True)
+    
+    if not df.empty:
+        # Sidebar filters
+        st.sidebar.markdown("<h3 style='color: #f5c77a;'>⚙️ Filter Settings</h3>", unsafe_allow_html=True)
+        
+        with st.sidebar:
+            content_type = st.selectbox(
+                "Content Type",
+                ["All", "Movie", "TV Show"]
+            )
+        
+        # Preprocess Genre Column
+        df['genre'] = df['listed_in'].str.split(',').str[0].str.strip()
+        
+        if content_type != "All":
+            genre_data = df[df['type'] == content_type]
+        else:
+            genre_data = df
+        
+        genre_counts = genre_data['genre'].value_counts().head(15).reset_index()
+        genre_counts.columns = ['Genre', 'Count']
+        
+        # Horizontal Bar Chart
+        fig_genre = px.bar(
+            genre_counts.sort_values('Count'),
+            x='Count', y='Genre',
             orientation='h',
-            color=avg_seasons.values,
-            color_continuous_scale='burg',
-            labels={'x': 'Average Seasons', 'y': 'Genre'},
-            title="Top 10 Genres by TV Show Seasons"
+            color='Count',
+            color_continuous_scale='gold',
+            title=f"Top 15 Genres - {content_type}"
         )
-        st.plotly_chart(fig_seasons, use_container_width=True)
-
-    st.markdown("This analysis helps identify which genres may have longer content, potentially leading to higher user retention. For example, genres with longer average movie durations or more seasons in TV shows might indicate deeper engagement.")
-
-
-# -------------------------
-# Section: Duration Distribution
-# -------------------------
-elif section == "Duration Distribution":
-    st.header("⏱️ Duration Distribution")
-    st.markdown("Explore how long Netflix content typically is.")
-
-    # Filter data
-    movie_df = df[df['type'] == 'Movie']
-    tv_df = df[df['type'] == 'TV Show']
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        st.subheader("🎥 Movie Durations (minutes)")
-        fig_movie = px.histogram(
-            movie_df,
-            x="duration_int",
-            nbins=30,
-            title="Movie Duration Distribution",
-            color_discrete_sequence=['indianred']
+        
+        fig_genre.update_layout(
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            font=dict(color='#f5c77a'),
+            xaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)'),
+            yaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)')
         )
-        fig_movie.update_layout(xaxis_title="Minutes", yaxis_title="Count")
-        st.plotly_chart(fig_movie, use_container_width=True)
+        
+        st.plotly_chart(fig_genre, use_container_width=True)
+        
+        # Genre Statistics
+        st.markdown("<div class='form-section'>", unsafe_allow_html=True)
+        st.markdown("<h4>📊 Genre Statistics</h4>", unsafe_allow_html=True)
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            total_genres = genre_data['genre'].nunique()
+            st.metric("Unique Genres", total_genres)
+        
+        with col2:
+            top_genre = genre_counts.iloc[0]['Genre'] if len(genre_counts) > 0 else "N/A"
+            top_count = genre_counts.iloc[0]['Count'] if len(genre_counts) > 0 else 0
+            st.metric("Top Genre", top_genre, delta=f"{top_count} titles")
+        
+        with col3:
+            avg_per_genre = genre_counts['Count'].mean() if len(genre_counts) > 0 else 0
+            st.metric("Avg per Genre", f"{avg_per_genre:.0f}")
+        
+        st.markdown("</div>", unsafe_allow_html=True)
+        
+        # Genre Distribution by Type
+        if content_type == "All":
+            st.markdown("<h4>🎬 Genre Distribution by Content Type</h4>", unsafe_allow_html=True)
+            
+            genre_by_type = df.groupby(['genre', 'type']).size().unstack(fill_value=0).head(10)
+            genre_by_type = genre_by_type.sort_values('Movie', ascending=False)
+            
+            fig_type = go.Figure()
+            
+            if 'Movie' in genre_by_type.columns:
+                fig_type.add_trace(go.Bar(
+                    name='Movies',
+                    x=genre_by_type.index,
+                    y=genre_by_type['Movie'],
+                    marker_color='#f5c77a'
+                ))
+            
+            if 'TV Show' in genre_by_type.columns:
+                fig_type.add_trace(go.Bar(
+                    name='TV Shows',
+                    x=genre_by_type.index,
+                    y=genre_by_type['TV Show'],
+                    marker_color='#d4a94e'
+                ))
+            
+            fig_type.update_layout(
+                barmode='group',
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(color='#f5c77a'),
+                xaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)'),
+                yaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)')
+            )
+            
+            st.plotly_chart(fig_type, use_container_width=True)
+    
+    else:
+        st.error("❌ No data available. Please load the dataset.")
+    
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    with col2:
-        st.subheader("📺 TV Show (seasons)")
-        fig_tv = px.histogram(
-            tv_df,
-            x="duration_int",
-            nbins=15,
-            title="TV Show Seasons Distribution",
-            color_discrete_sequence=['darkblue']
+# =============================
+# RETENTION ANALYSIS PAGE
+# =============================
+elif page == "⏱️ Retention Analysis":
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
+    st.markdown("<h1>⏱️ CONTENT RETENTION ANALYTICS</h1>", unsafe_allow_html=True)
+    
+    if not df.empty:
+        st.markdown("<h3>🕒 Engagement Metrics by Genre</h3>", unsafe_allow_html=True)
+        st.markdown("Analyze average durations to understand potential user engagement and retention patterns.")
+        
+        col1, col2 = st.columns(2)
+        
+        # Movie Durations by Genre
+        with col1:
+            st.markdown("<div class='insight-card'>", unsafe_allow_html=True)
+            st.markdown("##### 🎥 Average Movie Duration")
+            
+            movie_df = df[df['type'] == 'Movie'].copy()
+            movie_df['genre'] = movie_df['listed_in'].str.split(',').str[0].str.strip()
+            movie_df['duration'] = movie_df['duration'].str.extract('(\d+)').astype(float)
+            
+            avg_movie_duration = movie_df.groupby('genre')['duration'].mean().sort_values(ascending=False).head(10)
+            
+            fig_duration = px.bar(
+                avg_movie_duration,
+                x=avg_movie_duration.values,
+                y=avg_movie_duration.index,
+                orientation='h',
+                color=avg_movie_duration.values,
+                color_continuous_scale='gold',
+                labels={'x': 'Average Duration (minutes)', 'y': 'Genre'},
+                title="Top 10 Genres by Movie Length"
+            )
+            
+            fig_duration.update_layout(
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(color='#f5c77a'),
+                xaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)'),
+                yaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)')
+            )
+            
+            st.plotly_chart(fig_duration, use_container_width=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+        
+        # TV Show Seasons by Genre
+        with col2:
+            st.markdown("<div class='insight-card'>", unsafe_allow_html=True)
+            st.markdown("##### 📺 Average TV Show Seasons")
+            
+            show_df = df[df['type'] == 'TV Show'].copy()
+            show_df['genre'] = show_df['listed_in'].str.split(',').str[0].str.strip()
+            show_df['seasons'] = show_df['duration'].str.extract('(\d+)').astype(float)
+            
+            avg_seasons = show_df.groupby('genre')['seasons'].mean().sort_values(ascending=False).head(10)
+            
+            fig_seasons = px.bar(
+                avg_seasons,
+                x=avg_seasons.values,
+                y=avg_seasons.index,
+                orientation='h',
+                color=avg_seasons.values,
+                color_continuous_scale='gold',
+                labels={'x': 'Average Seasons', 'y': 'Genre'},
+                title="Top 10 Genres by Series Longevity"
+            )
+            
+            fig_seasons.update_layout(
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(color='#f5c77a'),
+                xaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)'),
+                yaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)')
+            )
+            
+            st.plotly_chart(fig_seasons, use_container_width=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+        
+        # Insights
+        st.markdown("<div class='form-section'>", unsafe_allow_html=True)
+        st.markdown("<h4>💡 Business Insights</h4>", unsafe_allow_html=True)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("""
+            **🎬 Movie Duration Insights:**
+            • Longer movies may indicate higher production value  
+            • Certain genres naturally have different length expectations  
+            • Duration correlates with audience engagement time  
+            • Impacts content scheduling and programming
+            """)
+        
+        with col2:
+            st.markdown("""
+            **📺 TV Series Insights:**
+            • More seasons indicate successful franchises  
+            • Long-running shows build loyal audiences  
+            • Impacts content acquisition strategy  
+            • Influences original content development
+            """)
+        
+        st.markdown("</div>", unsafe_allow_html=True)
+    
+    else:
+        st.error("❌ No data available. Please load the dataset.")
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# =============================
+# DURATION DISTRIBUTION PAGE
+# =============================
+elif page == "⏳ Duration Distribution":
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
+    st.markdown("<h1>⏳ CONTENT DURATION ANALYSIS</h1>", unsafe_allow_html=True)
+    
+    if not df.empty and 'duration_int' in df.columns:
+        st.markdown("<h3>📊 Content Length Distribution</h3>", unsafe_allow_html=True)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("<div class='insight-card'>", unsafe_allow_html=True)
+            st.markdown("##### 🎥 Movie Runtime Distribution")
+            
+            movie_df = df[df['type'] == 'Movie']
+            
+            fig_movie = px.histogram(
+                movie_df,
+                x="duration_int",
+                nbins=30,
+                color_discrete_sequence=['#f5c77a']
+            )
+            
+            fig_movie.update_layout(
+                title="Movie Duration Distribution",
+                xaxis_title="Duration (minutes)",
+                yaxis_title="Count",
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(color='#f5c77a'),
+                xaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)'),
+                yaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)')
+            )
+            
+            st.plotly_chart(fig_movie, use_container_width=True)
+            
+            # Movie stats
+            avg_movie = movie_df['duration_int'].mean()
+            median_movie = movie_df['duration_int'].median()
+            
+            st.metric("Average Duration", f"{avg_movie:.1f} min")
+            st.metric("Median Duration", f"{median_movie:.1f} min")
+            
+            st.markdown("</div>", unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown("<div class='insight-card'>", unsafe_allow_html=True)
+            st.markdown("##### 📺 TV Show Seasons Distribution")
+            
+            tv_df = df[df['type'] == 'TV Show']
+            
+            fig_tv = px.histogram(
+                tv_df,
+                x="duration_int",
+                nbins=15,
+                color_discrete_sequence=['#ffd98e']
+            )
+            
+            fig_tv.update_layout(
+                title="TV Show Seasons Distribution",
+                xaxis_title="Number of Seasons",
+                yaxis_title="Count",
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(color='#f5c77a'),
+                xaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)'),
+                yaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)')
+            )
+            
+            st.plotly_chart(fig_tv, use_container_width=True)
+            
+            # TV stats
+            avg_tv = tv_df['duration_int'].mean()
+            median_tv = tv_df['duration_int'].median()
+            
+            st.metric("Average Seasons", f"{avg_tv:.1f}")
+            st.metric("Median Seasons", f"{median_tv:.1f}")
+            
+            st.markdown("</div>", unsafe_allow_html=True)
+        
+        # Comparative Analysis
+        st.markdown("<div class='form-section'>", unsafe_allow_html=True)
+        st.markdown("<h4>📈 Duration Statistics Summary</h4>", unsafe_allow_html=True)
+        
+        if not movie_df.empty and not tv_df.empty:
+            stats_data = {
+                'Metric': ['Mean', 'Median', 'Minimum', 'Maximum', 'Standard Deviation'],
+                'Movies (min)': [
+                    f"{movie_df['duration_int'].mean():.1f}",
+                    f"{movie_df['duration_int'].median():.1f}",
+                    f"{movie_df['duration_int'].min():.0f}",
+                    f"{movie_df['duration_int'].max():.0f}",
+                    f"{movie_df['duration_int'].std():.1f}"
+                ],
+                'TV Shows (seasons)': [
+                    f"{tv_df['duration_int'].mean():.1f}",
+                    f"{tv_df['duration_int'].median():.1f}",
+                    f"{tv_df['duration_int'].min():.0f}",
+                    f"{tv_df['duration_int'].max():.0f}",
+                    f"{tv_df['duration_int'].std():.1f}"
+                ]
+            }
+            
+            stats_df = pd.DataFrame(stats_data)
+            st.dataframe(stats_df, use_container_width=True, hide_index=True)
+        
+        st.markdown("</div>", unsafe_allow_html=True)
+    
+    else:
+        st.error("❌ Duration data not available. Please check data preprocessing.")
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# =============================
+# GLOBAL TRENDS PAGE
+# =============================
+elif page == "🌍 Global Trends":
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
+    st.markdown("<h1>🌍 GLOBAL CONTENT TRENDS</h1>", unsafe_allow_html=True)
+    
+    if not df.empty:
+        # Filters
+        st.markdown("<div class='form-section'>", unsafe_allow_html=True)
+        st.markdown("<h4>⚙️ Filter Settings</h4>", unsafe_allow_html=True)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            selected_type = st.selectbox(
+                "Content Type",
+                ["All", "Movie", "TV Show"],
+                key="global_type"
+            )
+        
+        with col2:
+            min_year = int(df['release_year'].min())
+            max_year = int(df['release_year'].max())
+            year_range = st.slider(
+                "Release Year Range",
+                min_year, max_year,
+                (2010, max_year)
+            )
+        
+        st.markdown("</div>", unsafe_allow_html=True)
+        
+        # Filter dataset
+        filtered_df = df[
+            (df['release_year'] >= year_range[0]) &
+            (df['release_year'] <= year_range[1])
+        ]
+        
+        if selected_type != "All":
+            filtered_df = filtered_df[filtered_df['type'] == selected_type]
+        
+        # Count countries
+        country_counts = (
+            filtered_df['country']
+            .dropna()
+            .str.split(', ')
+            .explode()
+            .value_counts()
+            .reset_index()
         )
-        fig_tv.update_layout(xaxis_title="Seasons", yaxis_title="Count")
-        st.plotly_chart(fig_tv, use_container_width=True)
+        country_counts.columns = ['Country', 'Count']
+        
+        # Metrics
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("Total Titles", len(filtered_df))
+        
+        with col2:
+            st.metric("Countries", country_counts.shape[0])
+        
+        with col3:
+            top_country = country_counts.iloc[0]['Country'] if len(country_counts) > 0 else "N/A"
+            st.metric("Top Country", top_country)
+        
+        with col4:
+            top_count = country_counts.iloc[0]['Count'] if len(country_counts) > 0 else 0
+            st.metric("Top Count", top_count)
+        
+        # Choropleth Map
+        st.markdown("<h3>🌐 Global Contribution Map</h3>", unsafe_allow_html=True)
+        
+        if len(country_counts) > 0:
+            fig_map = px.choropleth(
+                country_counts,
+                locations='Country',
+                locationmode='country names',
+                color='Count',
+                color_continuous_scale='gold',
+                title=f"Content Production by Country ({selected_type})"
+            )
+            
+            fig_map.update_geos(
+                showcoastlines=True,
+                coastlinecolor="rgba(245, 199, 122, 0.3)",
+                showland=True,
+                landcolor="rgba(30, 30, 30, 0.3)",
+                showocean=True,
+                oceancolor="rgba(10, 10, 10, 0.8)",
+                showframe=False
+            )
+            
+            fig_map.update_layout(
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(color='#f5c77a'),
+                coloraxis_colorbar=dict(
+                    title="Count",
+                    tickfont=dict(color='#f5c77a')
+                )
+            )
+            
+            st.plotly_chart(fig_map, use_container_width=True)
+        else:
+            st.warning("No country data available for the selected filters.")
+        
+        # Top Countries Bar Chart
+        st.markdown("<h3>🏆 Top 15 Content Producing Countries</h3>", unsafe_allow_html=True)
+        
+        if len(country_counts) > 0:
+            top_countries = country_counts.head(15)
+            
+            fig_bar = px.bar(
+                top_countries,
+                x='Count',
+                y='Country',
+                orientation='h',
+                color='Count',
+                color_continuous_scale='gold'
+            )
+            
+            fig_bar.update_layout(
+                yaxis={'categoryorder': 'total ascending'},
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(color='#f5c77a'),
+                xaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)'),
+                yaxis=dict(gridcolor='rgba(245, 199, 122, 0.1)')
+            )
+            
+            st.plotly_chart(fig_bar, use_container_width=True)
+        
+        # Regional Analysis
+        st.markdown("<div class='form-section'>", unsafe_allow_html=True)
+        st.markdown("<h4>📈 Regional Analysis</h4>", unsafe_allow_html=True)
+        
+        # Group by continent/region (simplified)
+        region_mapping = {
+            'United States': 'North America',
+            'India': 'Asia',
+            'United Kingdom': 'Europe',
+            'Canada': 'North America',
+            'France': 'Europe',
+            'Japan': 'Asia',
+            'Spain': 'Europe',
+            'South Korea': 'Asia',
+            'Mexico': 'Latin America',
+            'Australia': 'Oceania'
+        }
+        
+        country_counts['Region'] = country_counts['Country'].map(region_mapping)
+        region_counts = country_counts.dropna().groupby('Region')['Count'].sum().reset_index()
+        
+        fig_pie = px.pie(
+            region_counts,
+            values='Count',
+            names='Region',
+            color_discrete_sequence=px.colors.sequential.gold
+        )
+        
+        fig_pie.update_traces(
+            textinfo='percent+label',
+            marker=dict(line=dict(color='#000000', width=1))
+        )
+        
+        fig_pie.update_layout(
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            font=dict(color='#f5c77a'),
+            showlegend=True
+        )
+        
+        st.plotly_chart(fig_pie, use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+    
+    else:
+        st.error("❌ No data available. Please load the dataset.")
+    
+    st.markdown("</div>", unsafe_allow_html=True)
 
-# -------------------------
-# Section: Country Trends
-# -------------------------
-elif section == "Country Trends":
-    st.header("🌍 Country-Wise Contribution")
-    st.markdown("Explore which countries produce the most Netflix content. Use the filters below:")
+# =============================
+# RAW DATA PAGE
+# =============================
+elif page == "📈 Raw Data":
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
+    st.markdown("<h1>📈 RAW DATA EXPLORER</h1>", unsafe_allow_html=True)
+    
+    if not df.empty:
+        st.markdown("<h3>📊 Complete Dataset</h3>", unsafe_allow_html=True)
+        st.markdown("Explore the full Netflix dataset with interactive filtering and sorting.")
+        
+        # Dataset Information
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.metric("Total Rows", len(df))
+        
+        with col2:
+            st.metric("Total Columns", len(df.columns))
+        
+        with col3:
+            st.metric("Memory Usage", f"{df.memory_usage(deep=True).sum() / 1024**2:.1f} MB")
+        
+        # Interactive Data Explorer
+        st.markdown("<div class='form-section'>", unsafe_allow_html=True)
+        st.markdown("<h4>🔍 Data Explorer</h4>", unsafe_allow_html=True)
+        
+        # Filters
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            content_filter = st.multiselect(
+                "Filter by Content Type",
+                df['type'].unique() if 'type' in df.columns else []
+            )
+        
+        with col2:
+            year_filter = st.multiselect(
+                "Filter by Release Year",
+                sorted(df['release_year'].dropna().unique(), reverse=True)[:20]
+            )
+        
+        with col3:
+            country_filter = st.multiselect(
+                "Filter by Country",
+                df['country'].dropna().str.split(', ').explode().value_counts().head(20).index.tolist()
+            )
+        
+        # Apply filters
+        filtered_data = df.copy()
+        
+        if content_filter:
+            filtered_data = filtered_data[filtered_data['type'].isin(content_filter)]
+        
+        if year_filter:
+            filtered_data = filtered_data[filtered_data['release_year'].isin(year_filter)]
+        
+        if country_filter:
+            filtered_data = filtered_data[filtered_data['country'].str.contains('|'.join(country_filter), na=False)]
+        
+        # Display data
+        st.dataframe(
+            filtered_data,
+            use_container_width=True,
+            height=500
+        )
+        
+        st.markdown(f"**Showing {len(filtered_data)} of {len(df)} records**")
+        st.markdown("</div>", unsafe_allow_html=True)
+        
+        # Download Section
+        st.markdown("<div class='form-section'>", unsafe_allow_html=True)
+        st.markdown("<h4>💾 Data Export</h4>", unsafe_allow_html=True)
+        
+        col1, col2 = st.columns([1, 3])
+        
+        with col1:
+            csv = filtered_data.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="📥 Download Filtered CSV",
+                data=csv,
+                file_name='netflix_filtered_data.csv',
+                mime='text/csv',
+                use_container_width=True
+            )
+        
+        with col2:
+            st.info("💡 Download the filtered dataset for further analysis in Excel, Python, or other tools.")
+        
+        st.markdown("</div>", unsafe_allow_html=True)
+        
+        # Data Schema
+        st.markdown("<div class='form-section'>", unsafe_allow_html=True)
+        st.markdown("<h4>📋 Data Schema</h4>", unsafe_allow_html=True)
+        
+        schema_data = []
+        for col in df.columns:
+            dtype = str(df[col].dtype)
+            non_null = df[col].count()
+            null_percent = (1 - non_null/len(df)) * 100
+            
+            schema_data.append({
+                'Column': col,
+                'Data Type': dtype,
+                'Non-Null Values': non_null,
+                'Null %': f"{null_percent:.1f}%"
+            })
+        
+        schema_df = pd.DataFrame(schema_data)
+        st.dataframe(schema_df, use_container_width=True, hide_index=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+    
+    else:
+        st.error("❌ No data available. Please load the dataset.")
+    
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    # 🎛️ Filters (inside main page)
-    col1, col2 = st.columns(2)
-    with col1:
-        selected_type = st.selectbox("Select Content Type", ["All", "Movie", "TV Show"])
-    with col2:
-        min_year, max_year = int(df['release_year'].min()), int(df['release_year'].max())
-        year_range = st.slider("Select Release Year Range", min_year, max_year, (min_year, max_year))
-
-    # Filter dataset
-    filtered_df = df[
-        (df['release_year'] >= year_range[0]) &
-        (df['release_year'] <= year_range[1])
-    ]
-    if selected_type != "All":
-        filtered_df = filtered_df[filtered_df['type'] == selected_type]
-
-    # Count countries
-    country_counts = (
-        filtered_df['country']
-        .dropna()
-        .str.split(', ')
-        .explode()
-        .value_counts()
-        .reset_index()
-    )
-    country_counts.columns = ['Country', 'Count']
-
-    st.info(f"Showing results for **{selected_type}** content from **{year_range[0]} to {year_range[1]}** ({len(filtered_df)} titles).")
-
-    # 🌍 Choropleth Map
-    st.subheader("Global Contribution Map")
-    fig_map = px.choropleth(
-        country_counts,
-        locations='Country',
-        locationmode='country names',
-        color='Count',
-        color_continuous_scale='sunset',
-        title=""
-    )
-    fig_map.update_geos(showcoastlines=False, showframe=False)
-    st.plotly_chart(fig_map, use_container_width=True)
-
-    # 📊 Bar Chart
-    st.subheader("Top 15 Content Producing Countries")
-    fig_bar = px.bar(
-        country_counts.head(15),
-        x='Count',
-        y='Country',
-        orientation='h',
-        color='Count',
-        color_continuous_scale='oxy'
-    )
-    fig_bar.update_layout(yaxis={'categoryorder': 'total ascending'})
-    st.plotly_chart(fig_bar, use_container_width=True)
-
-# -------------------------
-# Section: Raw Data
-# -------------------------
-elif section == "Raw Data":
-    st.header("📊 Raw Data")
-    st.markdown("Explore the raw Netflix dataset used for analysis.")
-
-    # Display raw data
-    st.dataframe(df, use_container_width=True)
-
-    # Download button
-    csv = df.to_csv(index=False).encode('utf-8')
-    st.download_button(
-        label="Download CSV",
-        data=csv,
-        file_name='netflix_data.csv',
-        mime='text/csv'
-    )
+# =============================
+# FOOTER
+# =============================
+st.markdown(
+    "<div class='footer'>StreamElite Analytics | Premium Streaming Intelligence © 2024</div>",
+    unsafe_allow_html=True
+)
