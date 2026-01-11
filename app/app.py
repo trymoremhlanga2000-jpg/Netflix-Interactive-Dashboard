@@ -8,7 +8,7 @@ import numpy as np
 # PAGE CONFIGURATION
 # =============================
 st.set_page_config(
-    page_title="StreamElite | Premium Streaming Analytics",
+    page_title="Trymore Premium Streaming Analytics",
     page_icon="💎",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -334,8 +334,8 @@ df = load_and_preprocess_data()
 # =============================
 # SIDEBAR NAVIGATION
 # =============================
-st.sidebar.markdown("<h2 style='text-align: center;'>💎 StreamElite</h2>", unsafe_allow_html=True)
-st.sidebar.markdown("<div style='text-align: center; color: rgba(245, 199, 122, 0.7); margin-bottom: 30px;'>PREMIUM STREAMING ANALYTICS</div>", unsafe_allow_html=True)
+st.sidebar.markdown("<h2 style='text-align: center;'>💎 TryieDataMagics</h2>", unsafe_allow_html=True)
+st.sidebar.markdown("<div style='text-align: center; color: rgba(245, 199, 122, 0.7); margin-bottom: 30px;'>STREAMING ANALYTICS</div>", unsafe_allow_html=True)
 
 page = st.sidebar.radio(
     "NAVIGATION",
@@ -1405,6 +1405,6 @@ elif page == "📈 Raw Data":
 # FOOTER
 # =============================
 st.markdown(
-    "<div class='footer'>StreamElite Analytics | Premium Streaming Intelligence © 2024</div>",
+    "<div class='footer'>TM Analytics | Streaming Intelligence © 2026</div>",
     unsafe_allow_html=True
 )
